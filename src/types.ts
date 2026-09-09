@@ -9,6 +9,12 @@ export interface SurveyItem {
   id: number;
 }
 
+export interface SurveyRowAnswer {
+  notEaten: boolean;            // 1: 食べたことがない
+  frequency: 1 | 2 | 3 | null;  // 1: よく食べる, 2: 割合よく食べる, 3: あまり食べない
+  occasion: 1 | 2 | 3 | null;   // 1: 家で作る, 2: 調理したものを買う, 3: 外食
+}
+
 export interface CategoryStatus {
   cat: string;
   filled: number;

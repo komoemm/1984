@@ -13,9 +13,11 @@ import { ToastContainer } from './components/ToastContainer';
 import {
   RAW_1984_SPEC,
   FULL_175_SCHEMA,
-  createSampleSurveyFormImage
+  createSampleSurveyFormImage,
+  isRowComplete,
+  isRowStarted
 } from './data/surveySchema';
-import { SelectionBox, ToastMessage, CategoryStatus } from './types';
+import { SelectionBox, ToastMessage, CategoryStatus, SurveyRowAnswer } from './types';
 
 declare global {
   interface Window {
@@ -35,10 +37,10 @@ export default function App() {
   const [pdfTotalPages, setPdfTotalPages] = useState<number>(1);
   const [docName, setDocName] = useState<string>('Survey Document');
 
-  // Form State
+  // Form State (Structured SurveyRowAnswer per row)
   const [activeCategory, setActiveCategory] = useState<string>(RAW_1984_SPEC[0].cat);
   const [activeRowIndex, setActiveRowIndex] = useState<number>(0);
-  const [answers, setAnswers] = useState<Record<number, number[]>>({});
+  const [answers, setAnswers] = useState<Record<number, SurveyRowAnswer>>({});
 
   // Modals & UI State
   const [isMatrixOpen, setIsMatrixOpen] = useState<boolean>(false);
@@ -149,28 +151,60 @@ export default function App() {
     showToast('Cleared selection box', 'info');
   }, [showToast]);
 
-  // Toggle Column Mark
-  const handleToggleColumnMark = useCallback((itemId: number, colNum: number) => {
+  // Toggle "① 食べたことがない" - clears frequency and occasion
+  const handleToggleNotEaten = useCallback((itemId: number) => {
     setAnswers(prev => {
-      const current = prev[itemId] ? [...prev[itemId]] : [];
-      const idx = current.indexOf(colNum);
-
-      if (idx >= 0) {
-        current.splice(idx, 1);
-        return { ...prev, [itemId]: current };
+      const cur = prev[itemId];
+      if (cur?.notEaten) {
+        return {
+          ...prev,
+          [itemId]: { notEaten: false, frequency: null, occasion: null }
+        };
       } else {
-        if (colNum === 1) {
-          // Column 1 ("食べたことがない") is mutually exclusive
-          return { ...prev, [itemId]: [1] };
-        } else {
-          // Remove 1 if present
-          const col1Idx = current.indexOf(1);
-          if (col1Idx >= 0) current.splice(col1Idx, 1);
-          current.push(colNum);
-          current.sort((a, b) => a - b);
-          return { ...prev, [itemId]: current };
-        }
+        return {
+          ...prev,
+          [itemId]: { notEaten: true, frequency: null, occasion: null }
+        };
       }
+    });
+  }, []);
+
+  // Select Frequency
+  const handleSelectFrequency = useCallback((itemId: number, freq: 1 | 2 | 3) => {
+    setAnswers(prev => {
+      const cur = prev[itemId];
+      return {
+        ...prev,
+        [itemId]: {
+          notEaten: false,
+          frequency: cur?.frequency === freq ? null : freq,
+          occasion: cur?.notEaten ? null : (cur?.occasion ?? null)
+        }
+      };
+    });
+  }, []);
+
+  // Select Occasion
+  const handleSelectOccasion = useCallback((itemId: number, occ: 1 | 2 | 3) => {
+    setAnswers(prev => {
+      const cur = prev[itemId];
+      return {
+        ...prev,
+        [itemId]: {
+          notEaten: false,
+          frequency: cur?.notEaten ? null : (cur?.frequency ?? null),
+          occasion: cur?.occasion === occ ? null : occ
+        }
+      };
+    });
+  }, []);
+
+  // Clear single row
+  const handleClearRow = useCallback((itemId: number) => {
+    setAnswers(prev => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
     });
   }, []);
 
@@ -180,7 +214,7 @@ export default function App() {
     for (let i = 1; i <= RAW_1984_SPEC.length; i++) {
       const checkIdx = (currentIdx + i) % RAW_1984_SPEC.length;
       const spec = RAW_1984_SPEC[checkIdx];
-      const isComplete = spec.ids.every(id => answers[id] && answers[id].length > 0);
+      const isComplete = spec.ids.every(id => isRowComplete(answers[id]));
       if (!isComplete) {
         setActiveCategory(spec.cat);
         setActiveRowIndex(0);
@@ -205,24 +239,33 @@ export default function App() {
     showToast(`${spec.cat} の入力をクリアしました`, 'info');
   }, [activeCategory, showToast]);
 
-  // Generate Survey Export Data
+  // Generate Survey Export Data mapped to 3 columns per row: [Not Eaten (1 or empty), Frequency (1-3), Occasion (1-3)]
   const generateSurveyExportData = useCallback((delimiter: string = ',') => {
     const header1 = ['Survey File', 'Category'];
-    const header2 = ['Filename / Page', 'Row ID'];
+    const header2 = ['Filename / Page', 'Field'];
     const dataRow = [
       pdfDoc ? `${docName} (Page ${pdfCurrentPage})` : docName,
       '1984 Survey Form'
     ];
 
     FULL_175_SCHEMA.forEach(item => {
+      // 1. Not Eaten
       header1.push(`"${item.cat}"`);
-      header2.push(`"行番号 ${item.id}"`);
+      header2.push(`"行${item.id}_未食"`);
+
+      // 2. Frequency
+      header1.push(`"${item.cat}"`);
+      header2.push(`"行${item.id}_頻度"`);
+
+      // 3. Occasion
+      header1.push(`"${item.cat}"`);
+      header2.push(`"行${item.id}_機会"`);
+
       const ans = answers[item.id];
-      if (ans && ans.length > 0) {
-        dataRow.push(`"${ans.join(',')}"`);
-      } else {
-        dataRow.push('""');
-      }
+      // [Not Eaten (1 or empty), Frequency (1-3), Occasion (1-3)]
+      dataRow.push(ans?.notEaten ? '"1"' : '""');
+      dataRow.push(ans && !ans.notEaten && ans.frequency !== null ? `"${ans.frequency}"` : '""');
+      dataRow.push(ans && !ans.notEaten && ans.occasion !== null ? `"${ans.occasion}"` : '""');
     });
 
     return [
@@ -245,7 +288,7 @@ export default function App() {
     showToast('1984 Survey CSV downloaded successfully!', 'success');
   }, [generateSurveyExportData, showToast]);
 
-  // Copy TSV to clipboard
+  // Copy TSV to clipboard (3 columns per row)
   const handleCopyTsv = useCallback(async () => {
     const tsvContent = generateSurveyExportData('\t');
     try {
@@ -262,7 +305,7 @@ export default function App() {
         document.execCommand('copy');
         document.body.removeChild(ta);
       }
-      showToast('Copied 1984 TSV to clipboard (Paste directly into Excel)!', 'success');
+      showToast('Copied 1984 TSV to clipboard (Excel 3-Column format)!', 'success');
     } catch {
       showToast('Failed to copy TSV to clipboard', 'warning');
     }
@@ -273,8 +316,10 @@ export default function App() {
     const incomplete: CategoryStatus[] = [];
     RAW_1984_SPEC.forEach(spec => {
       let filled = 0;
+      let started = 0;
       spec.ids.forEach(id => {
-        if (answers[id] && answers[id].length > 0) filled++;
+        if (isRowComplete(answers[id])) filled++;
+        if (isRowStarted(answers[id])) started++;
       });
       if (filled < spec.ids.length) {
         incomplete.push({
@@ -282,7 +327,7 @@ export default function App() {
           filled,
           total: spec.ids.length,
           isComplete: false,
-          isStarted: filled > 0
+          isStarted: started > 0
         });
       }
     });
@@ -302,7 +347,7 @@ export default function App() {
     triggerDirectCsvDownload();
   }, [triggerDirectCsvDownload]);
 
-  // Keyboard navigation & entry
+  // Keyboard navigation & rapid entry
   const stateRef = useRef({
     activeCategory,
     activeRowIndex,
@@ -333,51 +378,109 @@ export default function App() {
         return;
       }
 
-      const currentItems = FULL_175_SCHEMA.filter(
+      const currentCategoryItems = FULL_175_SCHEMA.filter(
         i => i.cat === stateRef.current.activeCategory
       );
       if (
-        currentItems.length > 0 &&
-        stateRef.current.activeRowIndex < currentItems.length
+        currentCategoryItems.length === 0 ||
+        stateRef.current.activeRowIndex >= currentCategoryItems.length
       ) {
-        const item = currentItems[stateRef.current.activeRowIndex];
+        return;
+      }
 
-        // 1 to 7 column entry
-        if (e.key >= '1' && e.key <= '7') {
-          const col = parseInt(e.key, 10);
-          handleToggleColumnMark(item.id, col);
+      const item = currentCategoryItems[stateRef.current.activeRowIndex];
+      const curAns = stateRef.current.answers[item.id];
 
-          // Auto-advance if item has 2 marks (e.g. freq + opportunity) or col 1
-          const curMarks = stateRef.current.answers[item.id] || [];
-          if (
-            (curMarks.length >= 1 || col === 1) &&
-            stateRef.current.activeRowIndex < currentItems.length - 1
-          ) {
-            setActiveRowIndex(prev => prev + 1);
+      // 1. '0': Toggles "食べたことがない" and immediately advances focus to the next row
+      if (e.key === '0') {
+        e.preventDefault();
+        const nextNotEaten = !curAns?.notEaten;
+        setAnswers(prev => ({
+          ...prev,
+          [item.id]: {
+            notEaten: nextNotEaten,
+            frequency: null,
+            occasion: null
           }
-        } else if (e.key === 'Enter' || e.key === 'ArrowDown') {
-          e.preventDefault();
-          if (stateRef.current.activeRowIndex < currentItems.length - 1) {
-            setActiveRowIndex(prev => prev + 1);
-          }
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          if (stateRef.current.activeRowIndex > 0) {
-            setActiveRowIndex(prev => prev - 1);
-          }
-        } else if (e.key === '0' || e.code === 'Space') {
-          e.preventDefault();
-          setAnswers(prev => ({ ...prev, [item.id]: [] }));
-          if (stateRef.current.activeRowIndex < currentItems.length - 1) {
+        }));
+        if (stateRef.current.activeRowIndex < currentCategoryItems.length - 1) {
+          setActiveRowIndex(prev => prev + 1);
+        }
+        return;
+      }
+
+      // 2. Numbers 1-3 for Frequency and Occasion
+      if (e.key === '1' || e.key === '2' || e.key === '3') {
+        e.preventDefault();
+        const val = parseInt(e.key, 10) as 1 | 2 | 3;
+
+        // If frequency is unset (or notEaten was true, or both were already set and user is re-entering)
+        if (
+          !curAns ||
+          curAns.notEaten ||
+          curAns.frequency === null ||
+          (curAns.frequency !== null && curAns.occasion !== null)
+        ) {
+          // Pressing numbers 1-3 when frequency is unset selects frequency
+          setAnswers(prev => ({
+            ...prev,
+            [item.id]: {
+              notEaten: false,
+              frequency: val,
+              occasion: null
+            }
+          }));
+          // Waiting for occasion, do not advance row
+        } else if (curAns && curAns.frequency !== null && curAns.occasion === null) {
+          // Immediately after frequency is chosen, the next 1-3 keypress selects occasion and auto-advances
+          setAnswers(prev => ({
+            ...prev,
+            [item.id]: {
+              notEaten: false,
+              frequency: curAns.frequency,
+              occasion: val
+            }
+          }));
+          if (stateRef.current.activeRowIndex < currentCategoryItems.length - 1) {
             setActiveRowIndex(prev => prev + 1);
           }
         }
+        return;
+      }
+
+      // 3. Enter or ArrowDown: Next row
+      if (e.key === 'Enter' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (stateRef.current.activeRowIndex < currentCategoryItems.length - 1) {
+          setActiveRowIndex(prev => prev + 1);
+        }
+        return;
+      }
+
+      // 4. ArrowUp: Previous row
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (stateRef.current.activeRowIndex > 0) {
+          setActiveRowIndex(prev => prev - 1);
+        }
+        return;
+      }
+
+      // 5. Spacebar: Clears the current row
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        setAnswers(prev => {
+          const next = { ...prev };
+          delete next[item.id];
+          return next;
+        });
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleToggleColumnMark, showToast]);
+  }, [showToast]);
 
   return (
     <div className="bg-[#090d16] text-slate-100 h-screen w-screen overflow-hidden flex flex-col font-sans select-none notranslate">
@@ -426,7 +529,10 @@ export default function App() {
           activeRowIndex={activeRowIndex}
           onSelectRowIndex={setActiveRowIndex}
           answers={answers}
-          onToggleColumnMark={handleToggleColumnMark}
+          onToggleNotEaten={handleToggleNotEaten}
+          onSelectFrequency={handleSelectFrequency}
+          onSelectOccasion={handleSelectOccasion}
+          onClearRow={handleClearRow}
           onJumpNextIncomplete={handleJumpNextIncomplete}
           onOpenMatrixModal={() => setIsMatrixOpen(true)}
           onCopyTsv={handleCopyTsv}

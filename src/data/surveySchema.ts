@@ -1,4 +1,4 @@
-import { CategorySpec, SurveyItem } from '../types';
+import { CategorySpec, SurveyItem, SurveyRowAnswer } from '../types';
 
 export const RAW_1984_SPEC: CategorySpec[] = [
   { cat: "①ごはん・麺・パン", ids: [1, 4, 5, 9, 11, 12, 13, 14, 18, 19, 21, 22, 25, 26, 27, 29, 31, 32, 33, 34, 37, 40] },
@@ -68,6 +68,29 @@ RAW_1984_SPEC.forEach(entry => {
     });
   });
 });
+
+export const FREQUENCY_OPTIONS: Array<{ value: 1 | 2 | 3; label: string; fullLabel: string }> = [
+  { value: 1, label: '1: よく食べる', fullLabel: 'よく食べる' },
+  { value: 2, label: '2: 割合よく', fullLabel: '割合よく食べる' },
+  { value: 3, label: '3: あまり', fullLabel: 'あまり食べない' }
+];
+
+export const OCCASION_OPTIONS: Array<{ value: 1 | 2 | 3; label: string; fullLabel: string }> = [
+  { value: 1, label: '1: 家で作る', fullLabel: '家で作る' },
+  { value: 2, label: '2: 調理したものを買う', fullLabel: '調理したものを買う' },
+  { value: 3, label: '3: 外食', fullLabel: '外食' }
+];
+
+export function isRowComplete(ans?: SurveyRowAnswer): boolean {
+  if (!ans) return false;
+  if (ans.notEaten) return true;
+  return ans.frequency !== null && ans.occasion !== null;
+}
+
+export function isRowStarted(ans?: SurveyRowAnswer): boolean {
+  if (!ans) return false;
+  return ans.notEaten || ans.frequency !== null || ans.occasion !== null;
+}
 
 export const COLUMN_INFO = [
   { id: 1, label: '1:ない', title: '① 食べたことがない', desc: '食べたことがない (1を選んだ場合は他の選択肢は無効)', color: 'text-rose-400' },

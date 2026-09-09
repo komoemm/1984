@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { LayoutGrid, X } from 'lucide-react';
-import { CategorySpec, CategoryStatus } from '../types';
+import { CategorySpec, CategoryStatus, SurveyRowAnswer } from '../types';
+import { isRowComplete, isRowStarted } from '../data/surveySchema';
 
 interface CategoryMatrixModalProps {
   isOpen: boolean;
   onClose: () => void;
   categories: CategorySpec[];
-  answers: Record<number, number[]>;
+  answers: Record<number, SurveyRowAnswer>;
   onSelectCategory: (cat: string) => void;
 }
 
@@ -23,15 +24,17 @@ export const CategoryMatrixModal: React.FC<CategoryMatrixModalProps> = ({
 
   const statuses: CategoryStatus[] = categories.map(spec => {
     let filled = 0;
+    let started = 0;
     spec.ids.forEach(id => {
-      if (answers[id] && answers[id].length > 0) filled++;
+      if (isRowComplete(answers[id])) filled++;
+      if (isRowStarted(answers[id])) started++;
     });
     return {
       cat: spec.cat,
       filled,
       total: spec.ids.length,
       isComplete: filled === spec.ids.length && spec.ids.length > 0,
-      isStarted: filled > 0
+      isStarted: started > 0
     };
   });
 

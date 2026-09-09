@@ -107,9 +107,10 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Quick Key Badges */}
         <div className="hidden xl:flex items-center gap-2 text-[11px] text-slate-400" aria-label="Keyboard Shortcuts">
-          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono">1–7 (Toggle Col)</span>
-          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-sky-300 font-mono">Enter / ↓ (Next)</span>
-          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-emerald-300 font-mono">0 / Space (Clear)</span>
+          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-rose-300 font-mono">0: 未食(Next)</span>
+          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono">1–3: 頻度→機会(Next)</span>
+          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">Space: クリア</span>
+          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-sky-300 font-mono">Enter/↓: 次へ</span>
         </div>
       </div>
     </header>
