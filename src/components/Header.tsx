@@ -4,8 +4,10 @@ import {
   FileUp,
   RotateCw,
   Scan,
-  FileText
+  FileText,
+  Languages
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HeaderProps {
   onFileUpload: (file: File) => void;
@@ -23,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   hasDocument
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { lang, setLang, t } = useLanguage();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -39,55 +42,94 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         <div>
           <h1 className="font-bold text-sm sm:text-base tracking-wide flex items-center gap-2 notranslate">
-            <span>1984 Japan Food Survey Digitizer</span>
+            <span>{t('header.appTitle')}</span>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              190品目 定義済
+              {t('header.badge')}
             </span>
           </h1>
           <p className="text-[10px] text-slate-400 hidden sm:block notranslate">
-            昭和59年 国民栄養調査 食物摂取頻度調査票（人手照合 &amp; 列番号入力システム）
+            {t('header.appSubtitle')}
           </p>
         </div>
       </div>
 
-      {/* Document Controls & Quick Shortcut Badges */}
+      {/* Action Controls & Language Switcher & Quick Shortcuts */}
       <div className="flex items-center space-x-2">
         <input
           type="file"
           ref={fileInputRef}
           accept=".pdf,.png,.jpg,.jpeg"
           className="hidden"
-          aria-label="Upload survey file"
+          aria-label={t('header.loadSurvey')}
           onChange={handleFileChange}
         />
-        
+
+        {/* Compact Modern Language Switcher Pill */}
+        <div
+          role="group"
+          aria-label="Language switcher"
+          className="flex items-center bg-slate-900 border border-slate-700/80 rounded-full p-0.5 shadow-inner"
+        >
+          <Languages className="w-3.5 h-3.5 text-slate-400 ml-1.5 mr-0.5 hidden sm:inline-block" aria-hidden="true" />
+          <button
+            id="langJaBtn"
+            type="button"
+            role="button"
+            aria-pressed={lang === 'ja'}
+            aria-label="日本語 (Japanese)"
+            onClick={() => setLang('ja')}
+            className={`px-2 py-0.5 rounded-full transition text-[11px] font-bold tracking-wider focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 cursor-pointer ${
+              lang === 'ja'
+                ? 'bg-sky-400 text-slate-950 font-black shadow-sm'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            JA
+          </button>
+          <button
+            id="langEnBtn"
+            type="button"
+            role="button"
+            aria-pressed={lang === 'en'}
+            aria-label="English"
+            onClick={() => setLang('en')}
+            className={`px-2 py-0.5 rounded-full transition text-[11px] font-bold tracking-wider focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 cursor-pointer ${
+              lang === 'en'
+                ? 'bg-sky-400 text-slate-950 font-black shadow-sm'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            EN
+          </button>
+        </div>
+
         <button
           id="uploadBtn"
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-xs font-semibold rounded-lg text-white shadow transition focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
         >
           <FileUp className="w-4 h-4" />
-          <span className="hidden sm:inline">Load Survey (PDF/Img)</span>
-          <span className="sm:hidden">Load</span>
+          <span className="hidden sm:inline">{t('header.loadSurvey')}</span>
+          <span className="sm:hidden">{t('header.load')}</span>
         </button>
 
         {!hasDocument && (
           <button
             id="loadSampleBtn"
             onClick={onLoadSample}
-            title="Load Sample 1984 Survey Form"
+            title={t('header.sampleForm')}
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-lg shadow transition focus:outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer"
           >
             <FileText className="w-4 h-4 text-sky-400" />
-            <span className="hidden md:inline">Sample Form</span>
+            <span className="hidden md:inline">{t('header.sampleForm')}</span>
           </button>
         )}
 
         <button
           id="rotateBtn"
           onClick={onRotate}
-          title="Rotate 90° Clockwise"
-          aria-label="Rotate image 90 degrees clockwise"
+          title={t('header.rotate')}
+          aria-label={t('header.rotate')}
           className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition focus:outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer"
         >
           <RotateCw className="w-4 h-4" />
@@ -96,8 +138,8 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           id="clearBoxBtn"
           onClick={onClearBox}
-          title="Clear Bounding Box (C)"
-          aria-label="Clear Crop Region Selection Box"
+          title={t('header.clearBox')}
+          aria-label={t('header.clearBox')}
           className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition focus:outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer"
         >
           <Scan className="w-4 h-4" />
@@ -107,10 +149,18 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Quick Key Badges */}
         <div className="hidden xl:flex items-center gap-2 text-[11px] text-slate-400" aria-label="Keyboard Shortcuts">
-          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-rose-300 font-mono">0: 未食(Next)</span>
-          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono">1–3: 頻度→機会(Next)</span>
-          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">Space: クリア</span>
-          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-sky-300 font-mono">Enter/↓: 次へ</span>
+          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-rose-300 font-mono">
+            {t('header.key0')}
+          </span>
+          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono">
+            {t('header.key13')}
+          </span>
+          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">
+            {t('header.keySpace')}
+          </span>
+          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-sky-300 font-mono">
+            {t('header.keyEnter')}
+          </span>
         </div>
       </div>
     </header>

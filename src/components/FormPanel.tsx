@@ -8,12 +8,8 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { CategorySpec, SurveyItem, SurveyRowAnswer } from '../types';
-import {
-  FREQUENCY_OPTIONS,
-  OCCASION_OPTIONS,
-  isRowComplete,
-  isRowStarted
-} from '../data/surveySchema';
+import { isRowComplete, isRowStarted } from '../data/surveySchema';
+import { useLanguage } from '../context/LanguageContext';
 
 interface FrequencyOptionButtonProps {
   itemId: number;
@@ -21,6 +17,7 @@ interface FrequencyOptionButtonProps {
   label: string;
   isSelected: boolean;
   onSelect: (itemId: number, freq: 1 | 2 | 3) => void;
+  ariaLabel: string;
 }
 
 const FrequencyOptionButton = React.memo<FrequencyOptionButtonProps>(({
@@ -28,7 +25,8 @@ const FrequencyOptionButton = React.memo<FrequencyOptionButtonProps>(({
   value,
   label,
   isSelected,
-  onSelect
+  onSelect,
+  ariaLabel
 }) => {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -40,7 +38,7 @@ const FrequencyOptionButton = React.memo<FrequencyOptionButtonProps>(({
       type="button"
       role="button"
       aria-pressed={isSelected}
-      aria-label={`行番号 ${itemId} ② 頻度: ${label}`}
+      aria-label={ariaLabel}
       onClick={handleClick}
       className={`py-1.5 px-1 text-center font-medium text-[11px] rounded transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 cursor-pointer ${
         isSelected
@@ -60,6 +58,7 @@ interface OccasionOptionButtonProps {
   label: string;
   isSelected: boolean;
   onSelect: (itemId: number, occ: 1 | 2 | 3) => void;
+  ariaLabel: string;
 }
 
 const OccasionOptionButton = React.memo<OccasionOptionButtonProps>(({
@@ -67,7 +66,8 @@ const OccasionOptionButton = React.memo<OccasionOptionButtonProps>(({
   value,
   label,
   isSelected,
-  onSelect
+  onSelect,
+  ariaLabel
 }) => {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -79,7 +79,7 @@ const OccasionOptionButton = React.memo<OccasionOptionButtonProps>(({
       type="button"
       role="button"
       aria-pressed={isSelected}
-      aria-label={`行番号 ${itemId} ③ 機会: ${label}`}
+      aria-label={ariaLabel}
       onClick={handleClick}
       className={`py-1.5 px-1 text-center font-medium text-[11px] rounded transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 cursor-pointer ${
         isSelected
@@ -116,6 +116,7 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
   onSelectOccasion,
   onClearRow
 }) => {
+  const { t } = useLanguage();
   const isNeverEaten = ans ? (ans.neverEaten || !!ans.notEaten) : false;
   const complete = isRowComplete(ans);
   const started = isRowStarted(ans);
@@ -134,6 +135,18 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
     e.stopPropagation();
     onClearRow(item.id);
   };
+
+  const freqOptions = [
+    { value: 1 as const, label: t('form.freq1') },
+    { value: 2 as const, label: t('form.freq2') },
+    { value: 3 as const, label: t('form.freq3') }
+  ];
+
+  const occOptions = [
+    { value: 1 as const, label: t('form.occ1') },
+    { value: 2 as const, label: t('form.occ2') },
+    { value: 3 as const, label: t('form.occ3') }
+  ];
 
   return (
     <div
@@ -159,7 +172,7 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
                 : 'bg-slate-950 border-slate-700 text-amber-300'
             }`}
           >
-            行番号 {item.id}
+            {t('form.line', { id: item.id })}
           </span>
           <span className="text-[11px] font-mono text-slate-400">
             #{String(item.id).padStart(3, '0')}
@@ -171,9 +184,9 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
           {isNeverEaten && (
             <span
               className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/80 text-rose-200 border border-rose-400/80 flex items-center gap-1"
-              aria-label={`行番号 ${item.id} 未食選択済`}
+              aria-label={`Item ${item.id} ${t('form.neverEatenBadge')}`}
             >
-              <Check className="w-3 h-3 text-rose-300" aria-hidden="true" /> 未食
+              <Check className="w-3 h-3 text-rose-300" aria-hidden="true" /> {t('form.neverEatenBadge')}
             </span>
           )}
 
@@ -182,17 +195,17 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
               {ans.frequency !== null && (
                 <span
                   className="px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-200 font-bold border border-amber-400/80"
-                  aria-label={`行番号 ${item.id} 頻度 ${ans.frequency}`}
+                  aria-label={`Item ${item.id} Frequency ${ans.frequency}`}
                 >
-                  頻度:{ans.frequency}
+                  {t('form.freqBadge', { val: ans.frequency })}
                 </span>
               )}
               {ans.occasion !== null && (
                 <span
                   className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-200 font-bold border border-emerald-400/80"
-                  aria-label={`行番号 ${item.id} 機会 ${ans.occasion}`}
+                  aria-label={`Item ${item.id} Occasion ${ans.occasion}`}
                 >
-                  機会:{ans.occasion}
+                  {t('form.occBadge', { val: ans.occasion })}
                 </span>
               )}
             </div>
@@ -200,15 +213,15 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
 
           {!started && (
             <span className="text-[10px] text-slate-400 font-mono">
-              -- 未選択 --
+              {t('form.unselected')}
             </span>
           )}
 
           {started && (
             <button
               type="button"
-              title="この行の選択をクリア (Space)"
-              aria-label={`行番号 ${item.id} の選択をクリア`}
+              title={t('form.clearRowTitle')}
+              aria-label={t('form.clearRowTitle')}
               onClick={handleClearClick}
               className="p-1 text-slate-400 hover:text-slate-200 rounded hover:bg-slate-800 transition focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400 cursor-pointer"
             >
@@ -218,12 +231,12 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
         </div>
       </div>
 
-      {/* 1. Independent Toggle Button for "① 食べたことがない" */}
+      {/* 1. Independent Toggle Button for "① 食べたことがない" / "① Never eaten" */}
       <button
         type="button"
         role="checkbox"
         aria-checked={isNeverEaten}
-        aria-label={`行番号 ${item.id}: ① 食べたことがない`}
+        aria-label={`${t('form.line', { id: item.id })}: ${t('form.neverEatenOption')}`}
         onClick={handleNeverEatenClick}
         className={`w-full py-1.5 px-3 rounded-md text-xs font-semibold flex items-center justify-between transition focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 cursor-pointer ${
           isNeverEaten
@@ -242,26 +255,26 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
           >
             {isNeverEaten ? '✓' : ''}
           </span>
-          <span>① 食べたことがない</span>
+          <span>{t('form.neverEatenOption')}</span>
         </span>
         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/50 text-slate-300 border border-slate-700">
-          Key: 0
+          {t('form.key0Badge')}
         </span>
       </button>
 
-      {/* 2. Independent Grouped Sub-rows for 頻度 and 機会 (Multi-selection enabled, never disabled) */}
+      {/* 2. Independent Grouped Sub-rows for 頻度 (Frequency) and 機会 (Occasion) */}
       <div className="space-y-1.5">
-        {/* Group A (頻度): 3 buttons */}
+        {/* Group A (Frequency): 3 buttons */}
         <div
           role="group"
-          aria-label={`行番号 ${item.id} ② 頻度選択`}
+          aria-label={`${t('form.line', { id: item.id })} ${t('form.freqGroupLabel')}`}
           className="flex items-center gap-1.5"
         >
-          <div className="w-14 shrink-0 py-1 text-center font-bold text-[10px] rounded bg-amber-500/20 border border-amber-400/40 text-amber-200">
-            ② 頻度
+          <div className="w-16 shrink-0 py-1 text-center font-bold text-[10px] rounded bg-amber-500/20 border border-amber-400/40 text-amber-200">
+            {t('form.freqGroupLabel')}
           </div>
           <div className="flex-1 grid grid-cols-3 gap-1">
-            {FREQUENCY_OPTIONS.map((opt) => (
+            {freqOptions.map((opt) => (
               <FrequencyOptionButton
                 key={opt.value}
                 itemId={item.id}
@@ -269,22 +282,23 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
                 label={opt.label}
                 isSelected={ans?.frequency === opt.value}
                 onSelect={onSelectFrequency}
+                ariaLabel={`${t('form.line', { id: item.id })} ${t('form.freqGroupLabel')}: ${opt.label}`}
               />
             ))}
           </div>
         </div>
 
-        {/* Group B (機会): 3 buttons */}
+        {/* Group B (Occasion): 3 buttons */}
         <div
           role="group"
-          aria-label={`行番号 ${item.id} ③ 機会選択`}
+          aria-label={`${t('form.line', { id: item.id })} ${t('form.occGroupLabel')}`}
           className="flex items-center gap-1.5"
         >
-          <div className="w-14 shrink-0 py-1 text-center font-bold text-[10px] rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-200">
-            ③ 機会
+          <div className="w-16 shrink-0 py-1 text-center font-bold text-[10px] rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-200">
+            {t('form.occGroupLabel')}
           </div>
           <div className="flex-1 grid grid-cols-3 gap-1">
-            {OCCASION_OPTIONS.map((opt) => (
+            {occOptions.map((opt) => (
               <OccasionOptionButton
                 key={opt.value}
                 itemId={item.id}
@@ -292,6 +306,7 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
                 label={opt.label}
                 isSelected={ans?.occasion === opt.value}
                 onSelect={onSelectOccasion}
+                ariaLabel={`${t('form.line', { id: item.id })} ${t('form.occGroupLabel')}: ${opt.label}`}
               />
             ))}
           </div>
@@ -342,6 +357,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
   schemaItems
 }) => {
   const streamListRef = useRef<HTMLDivElement>(null);
+  const { t, tCat } = useLanguage();
 
   const toggleHandler = onToggleNeverEaten || onToggleNotEaten || (() => {});
 
@@ -403,7 +419,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
               className="text-xs font-bold uppercase tracking-wider text-slate-200"
               id="statusText"
             >
-              Rapid Entry Mode
+              {t('form.rapidEntry')}
             </span>
           </div>
 
@@ -412,12 +428,12 @@ export const FormPanel: React.FC<FormPanelProps> = ({
               id="openMatrixBtn"
               type="button"
               onClick={onOpenMatrixModal}
-              aria-label="Open 54 Category Progress Matrix"
+              aria-label="Open Category Progress Matrix"
               className="text-[11px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sky-300 transition flex items-center gap-1 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
             >
               <LayoutGrid className="w-3 h-3" aria-hidden="true" />
               <span id="matrixSummaryBadge">
-                {completeCategoriesCount} / 54 完了
+                {t('form.matrixSummary', { count: completeCategoriesCount })}
               </span>
             </button>
             <span
@@ -425,7 +441,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
               id="progressBadge"
               aria-live="polite"
             >
-              {totalFilledItems} / {schemaItems.length} 入力済
+              {t('form.itemsFilled', { filled: totalFilledItems, total: schemaItems.length })}
             </span>
           </div>
         </div>
@@ -436,7 +452,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
               htmlFor="categorySelector"
               className="text-[11px] font-semibold text-slate-300 flex items-center gap-1 notranslate"
             >
-              <span>調査分類（54カテゴリ &amp; 190行番号定義）</span>
+              <span>{t('form.categorySelectorLabel')}</span>
             </label>
             <button
               id="jumpNextIncompleteBtn"
@@ -445,7 +461,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
               className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-400"
             >
               <ChevronsRight className="w-3 h-3" aria-hidden="true" />
-              <span>次の未完了へ</span>
+              <span>{t('form.nextIncomplete')}</span>
             </button>
           </div>
           
@@ -453,7 +469,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
             id="categorySelector"
             value={activeCategory}
             onChange={(e) => onSelectCategory(e.target.value)}
-            aria-label="調査分類選択"
+            aria-label={t('form.categorySelectorLabel')}
             className={`w-full bg-[#090d16] border text-xs rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-blue-500 transition notranslate font-sans cursor-pointer ${
               isCurrentCategoryComplete
                 ? 'border-emerald-500 bg-emerald-950/20'
@@ -469,10 +485,11 @@ export const FormPanel: React.FC<FormPanelProps> = ({
               });
               const isComplete = filled === spec.ids.length && spec.ids.length > 0;
               const markIcon = isComplete ? '✅' : started > 0 ? '⏳' : '⚪';
+              const localizedCat = tCat(spec.cat);
 
               return (
                 <option key={spec.cat} value={spec.cat}>
-                  {markIcon} [{filled}/{spec.ids.length}] {spec.cat}（行番号 {spec.ids[0]}～{spec.ids[spec.ids.length - 1]}）
+                  {markIcon} [{filled}/{spec.ids.length}] {localizedCat} ({spec.ids[0]}～{spec.ids[spec.ids.length - 1]})
                 </option>
               );
             })}
@@ -482,13 +499,13 @@ export const FormPanel: React.FC<FormPanelProps> = ({
         {/* Form Structure Reference Guide */}
         <div className="flex items-center gap-1.5 text-[10px] pt-0.5 notranslate font-medium">
           <div className="flex-1 py-1 px-2 rounded bg-rose-500/15 border border-rose-400/40 text-rose-200 text-center font-mono">
-            ①未食: [0]
+            {t('form.guideNever')}
           </div>
           <div className="flex-[1.4] py-1 px-2 rounded bg-amber-500/15 border border-amber-400/40 text-amber-200 text-center font-mono">
-            ②頻度: [1:よく 2:割と 3:稀]
+            {t('form.guideFreq')}
           </div>
           <div className="flex-[1.4] py-1 px-2 rounded bg-emerald-500/15 border border-emerald-400/40 text-emerald-200 text-center font-mono">
-            ③機会: [1:手作 2:惣菜 3:外食]
+            {t('form.guideOcc')}
           </div>
         </div>
       </div>
@@ -527,7 +544,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
             onClick={onCopyTsv}
             className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition flex items-center justify-center gap-1.5 notranslate focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer"
           >
-            <Copy className="w-3.5 h-3.5" aria-hidden="true" /> Copy TSV (Excel 3-Cols)
+            <Copy className="w-3.5 h-3.5" aria-hidden="true" /> {t('form.copyTsv')}
           </button>
           <button
             id="clearCategoryMarksBtn"
@@ -535,7 +552,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
             onClick={onClearActiveCategory}
             className="px-3 py-1.5 bg-slate-800 hover:bg-rose-900/40 text-slate-300 hover:text-rose-200 text-xs font-medium rounded-lg border border-slate-700 transition notranslate focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 cursor-pointer"
           >
-            Clear Active Cat
+            {t('form.clearCategory')}
           </button>
         </div>
 
@@ -546,7 +563,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
           className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow transition flex items-center justify-center gap-2 notranslate focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 cursor-pointer"
         >
           <Download className="w-4 h-4" aria-hidden="true" />
-          <span>Download 1984 Food Survey CSV (3 Columns / Item)</span>
+          <span>{t('form.downloadCsv')}</span>
         </button>
       </div>
     </section>

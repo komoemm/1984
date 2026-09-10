@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LayoutGrid, X } from 'lucide-react';
 import { CategorySpec, CategoryStatus, SurveyRowAnswer } from '../types';
 import { isRowComplete, isRowStarted } from '../data/surveySchema';
+import { useLanguage } from '../context/LanguageContext';
 
 interface CategoryMatrixModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const CategoryMatrixModal: React.FC<CategoryMatrixModalProps> = ({
   onSelectCategory
 }) => {
   const [filter, setFilter] = useState<'all' | 'incomplete' | 'complete'>('all');
+  const { t, tCat } = useLanguage();
 
   if (!isOpen) return null;
 
@@ -39,6 +41,7 @@ export const CategoryMatrixModal: React.FC<CategoryMatrixModalProps> = ({
   });
 
   const completeCount = statuses.filter(s => s.isComplete).length;
+  const incompleteCount = categories.length - completeCount;
   const percentComplete = Math.round((completeCount / categories.length) * 100);
 
   const filteredStatuses = statuses.filter(stat => {
@@ -61,9 +64,9 @@ export const CategoryMatrixModal: React.FC<CategoryMatrixModalProps> = ({
           <div>
             <h2 id="matrixModalTitle" className="font-bold text-sm text-slate-100 flex items-center gap-2">
               <LayoutGrid className="w-4 h-4 text-sky-400" />
-              <span>全54カテゴリ 入力進捗状況マトリクス</span>
+              <span>{t('modal.matrixTitle')}</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">クリックすると対象カテゴリの入力画面に即座にジャンプします</p>
+            <p className="text-xs text-slate-400 mt-0.5">{t('modal.matrixSubtitle')}</p>
           </div>
           <button
             id="closeMatrixModalBtn"
@@ -87,7 +90,7 @@ export const CategoryMatrixModal: React.FC<CategoryMatrixModalProps> = ({
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
-              すべて ({categories.length})
+              {t('modal.filterAll', { count: categories.length })}
             </button>
             <button
               id="filterIncompleteMatrixBtn"
@@ -98,7 +101,7 @@ export const CategoryMatrixModal: React.FC<CategoryMatrixModalProps> = ({
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
-              未完了のみ
+              {t('modal.filterIncomplete', { count: incompleteCount })}
             </button>
             <button
               id="filterCompleteMatrixBtn"
@@ -109,11 +112,11 @@ export const CategoryMatrixModal: React.FC<CategoryMatrixModalProps> = ({
                   : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
               }`}
             >
-              完了のみ
+              {t('modal.filterComplete', { count: completeCount })}
             </button>
           </div>
           <span id="matrixPercentBadge" className="font-mono text-emerald-400 font-bold">
-            {percentComplete}% 完了 ({completeCount}/{categories.length})
+            {percentComplete}% {t('form.matrixSummary', { count: completeCount })}
           </span>
         </div>
 
@@ -122,6 +125,7 @@ export const CategoryMatrixModal: React.FC<CategoryMatrixModalProps> = ({
           {filteredStatuses.map((stat) => {
             const spec = categories.find(c => c.cat === stat.cat)!;
             const pct = Math.round((stat.filled / stat.total) * 100);
+            const localizedCat = tCat(stat.cat);
 
             return (
               <button
@@ -141,10 +145,10 @@ export const CategoryMatrixModal: React.FC<CategoryMatrixModalProps> = ({
               >
                 <div className="flex flex-col space-y-1">
                   <span className="font-semibold text-slate-200">
-                    {stat.isComplete ? '✅' : stat.isStarted ? '⏳' : '⚪'} {stat.cat}
+                    {stat.isComplete ? '✅' : stat.isStarted ? '⏳' : '⚪'} {localizedCat}
                   </span>
                   <span className="text-[10px] text-slate-400 font-mono">
-                    行番号 {spec.ids[0]}～{spec.ids[spec.ids.length - 1]} ({spec.ids.length}項目)
+                    {t('form.line', { id: `${spec.ids[0]}～${spec.ids[spec.ids.length - 1]}` })} ({t('modal.matrixItemStatus', { filled: stat.filled, total: spec.ids.length })})
                   </span>
                 </div>
                 <div className="text-right shrink-0 ml-2">

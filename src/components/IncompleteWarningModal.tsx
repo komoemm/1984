@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { CategoryStatus } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 interface IncompleteWarningModalProps {
   isOpen: boolean;
@@ -15,6 +16,8 @@ export const IncompleteWarningModal: React.FC<IncompleteWarningModalProps> = ({
   incompleteCategories,
   onForceExport
 }) => {
+  const { t, tCat } = useLanguage();
+
   if (!isOpen) return null;
 
   return (
@@ -32,10 +35,10 @@ export const IncompleteWarningModal: React.FC<IncompleteWarningModalProps> = ({
           </div>
           <div>
             <h2 id="incompleteDialogTitle" className="font-bold text-sm text-amber-300">
-              未入力カテゴリが存在します
+              {t('modal.warningTitle')}
             </h2>
             <p className="text-xs text-slate-400">
-              以下のカテゴリに未選択の項目が残っています
+              {t('modal.warningSubtitle')}
             </p>
           </div>
         </div>
@@ -49,9 +52,9 @@ export const IncompleteWarningModal: React.FC<IncompleteWarningModalProps> = ({
               key={stat.cat}
               className="flex items-center justify-between py-1 px-1.5 hover:bg-slate-900 rounded transition"
             >
-              <span className="font-medium text-slate-200">{stat.cat}</span>
+              <span className="font-medium text-slate-200">{tCat(stat.cat)}</span>
               <span className="font-mono text-amber-400 font-semibold">
-                {stat.filled} / {stat.total} 入力済
+                {t('modal.warningFilled', { filled: stat.filled, total: stat.total })}
               </span>
             </div>
           ))}
@@ -63,14 +66,14 @@ export const IncompleteWarningModal: React.FC<IncompleteWarningModalProps> = ({
             onClick={onClose}
             className="px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 rounded-lg transition cursor-pointer"
           >
-            入力画面に戻る
+            {t('modal.returnToForm')}
           </button>
           <button
             id="forceExportCsvBtn"
             onClick={onForceExport}
             className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs rounded-lg shadow transition cursor-pointer"
           >
-            未入力を空欄のままCSV出力
+            {t('modal.forceExport')}
           </button>
         </div>
       </div>

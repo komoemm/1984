@@ -27,6 +27,8 @@ interface DocumentViewerProps {
   onLoadSample: () => void;
 }
 
+import { useLanguage } from '../context/LanguageContext';
+
 export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   imageSource,
   imageRotation,
@@ -40,6 +42,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   onFileUpload,
   onLoadSample
 }) => {
+  const { t } = useLanguage();
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -496,17 +499,15 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                 <FileUp className="w-8 h-8" />
               </div>
               <h3 className="text-base font-bold text-slate-100 mb-1">
-                調査票PDF / 画像をアップロード
+                {t('viewer.uploadTitle')}
               </h3>
-              <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                クリックまたはPDF・画像ファイルをここにドラッグ＆ドロップしてください。
-                <br />
-                （PDFは複数ページの閲覧・拡大縮小に対応）
+              <p className="text-xs text-slate-400 mb-4 leading-relaxed whitespace-pre-line">
+                {t('viewer.uploadDesc')}
               </p>
               
               <div className="flex items-center gap-2">
                 <span className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-blue-900/30 transition flex items-center gap-1.5">
-                  <FolderOpen className="w-4 h-4" /> ファイルを選択
+                  <FolderOpen className="w-4 h-4" /> {t('viewer.selectFile')}
                 </span>
                 <button
                   type="button"
@@ -516,7 +517,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                   }}
                   className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
                 >
-                  <FileText className="w-4 h-4 text-sky-400" /> サンプル調査票を開く
+                  <FileText className="w-4 h-4 text-sky-400" /> {t('viewer.openSample')}
                 </button>
               </div>
             </div>

@@ -10,12 +10,12 @@ import { FormPanel } from './components/FormPanel';
 import { CategoryMatrixModal } from './components/CategoryMatrixModal';
 import { IncompleteWarningModal } from './components/IncompleteWarningModal';
 import { ToastContainer } from './components/ToastContainer';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import {
   RAW_1984_SPEC,
   FULL_175_SCHEMA,
   createSampleSurveyFormImage,
-  isRowComplete,
-  isRowStarted
+  isRowComplete
 } from './data/surveySchema';
 import { SelectionBox, ToastMessage, CategoryStatus, SurveyRowAnswer } from './types';
 
@@ -25,7 +25,9 @@ declare global {
   }
 }
 
-export default function App() {
+function SurveyAppContent() {
+  const { t, tCat } = useLanguage();
+
   // Survey and Image State
   const [imageSource, setImageSource] = useState<HTMLImageElement | HTMLCanvasElement | null>(null);
   const [imageRotation, setImageRotation] = useState<number>(0);
@@ -83,9 +85,9 @@ export default function App() {
       }
     } catch (err) {
       console.error('Error rendering PDF page:', err);
-      showToast('PDF ページの描画に失敗しました', 'warning');
+      showToast(t('toast.pdfRenderError'), 'warning');
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   // File Upload Processor
   const handleFileUpload = useCallback(async (file: File) => {
@@ -98,65 +100,63 @@ export default function App() {
           setPdfDoc(doc);
           setPdfTotalPages(doc.numPages);
           await renderPdfPage(doc, 1);
-          showToast(`PDF loaded (${doc.numPages} pages)`, 'success');
         } else {
-          showToast('PDF.js library is loading, please try again in a moment', 'warning');
+          showToast('PDF.js library not loaded yet', 'warning');
         }
       } catch (err) {
-        console.error('Failed to parse PDF:', err);
-        showToast('PDFファイルの読み込みに失敗しました', 'warning');
+        console.error('PDF parsing error:', err);
+        showToast('PDF read failure', 'warning');
       }
     } else {
-      setPdfDoc(null);
+      // Standard image
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
           setImageSource(img);
           setImageRotation(0);
           setSelectionBox(null);
-          showToast('Survey scan loaded', 'success');
+          setPdfDoc(null);
+          setPdfCurrentPage(1);
+          setPdfTotalPages(1);
         };
-        if (event.target?.result) {
-          img.src = event.target.result as string;
-        }
+        img.src = e.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
   }, [renderPdfPage, showToast]);
 
-  // Load Built-in Sample Survey Sheet
+  // Load Built-in 1984 Sample Survey Form
   const handleLoadSample = useCallback(() => {
     const sampleCanvas = createSampleSurveyFormImage();
     setImageSource(sampleCanvas);
     setImageRotation(0);
     setSelectionBox(null);
     setPdfDoc(null);
-    setDocName('昭和59年 国民栄養調査 食物摂取状況標本票');
-    showToast('サンプル調査票を読み込みました（すぐに操作テスト可能）', 'success');
-  }, [showToast]);
+    setPdfCurrentPage(1);
+    setPdfTotalPages(1);
+    setDocName('昭和59年_国民栄養調査_食物摂取頻度調査票(サンプル).png');
+    showToast(t('toast.sampleLoaded'), 'info');
+  }, [showToast, t]);
 
-  // Rotate Image
+  // Rotate Image 90 deg
   const handleRotate = useCallback(() => {
-    if (!imageSource) return;
-    const newRot = (imageRotation + 90) % 360;
-    setImageRotation(newRot);
-    setSelectionBox(null);
-    showToast(`Rotated to ${newRot}°`, 'info');
-  }, [imageSource, imageRotation, showToast]);
+    setImageRotation(prev => (prev + 90) % 360);
+  }, []);
 
-  // Clear Box
+  // Clear Selection Box
   const handleClearBox = useCallback(() => {
     setSelectionBox(null);
-    showToast('Cleared selection box', 'info');
-  }, [showToast]);
+    showToast(t('toast.selectionBoxCleared'), 'info');
+  }, [showToast, t]);
 
-  // Toggle "① 食べたことがない" (Never eaten) independently without altering frequency or occasion
+  // 1. Independent Toggle for "① 食べたことがない" (Never eaten)
   const handleToggleNeverEaten = useCallback((itemId: number) => {
     setAnswers(prev => {
       const cur = prev[itemId];
       const isCurrentlyNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
       const nextNever = !isCurrentlyNever;
+
       return {
         ...prev,
         [itemId]: {
@@ -169,16 +169,16 @@ export default function App() {
     });
   }, []);
 
-  // Select Frequency independently without altering neverEaten
+  // 2. Independent Select for "② 頻度" (Frequency)
   const handleSelectFrequency = useCallback((itemId: number, freq: 1 | 2 | 3) => {
     setAnswers(prev => {
       const cur = prev[itemId];
-      const isNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
+      const isCurrentlyNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
       return {
         ...prev,
         [itemId]: {
-          neverEaten: isNever,
-          notEaten: isNever,
+          neverEaten: isCurrentlyNever,
+          notEaten: isCurrentlyNever,
           frequency: cur?.frequency === freq ? null : freq,
           occasion: cur?.occasion ?? null
         }
@@ -186,16 +186,16 @@ export default function App() {
     });
   }, []);
 
-  // Select Occasion independently without altering neverEaten
+  // 3. Independent Select for "③ 機会" (Occasion)
   const handleSelectOccasion = useCallback((itemId: number, occ: 1 | 2 | 3) => {
     setAnswers(prev => {
       const cur = prev[itemId];
-      const isNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
+      const isCurrentlyNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
       return {
         ...prev,
         [itemId]: {
-          neverEaten: isNever,
-          notEaten: isNever,
+          neverEaten: isCurrentlyNever,
+          notEaten: isCurrentlyNever,
           frequency: cur?.frequency ?? null,
           occasion: cur?.occasion === occ ? null : occ
         }
@@ -222,12 +222,12 @@ export default function App() {
       if (!isComplete) {
         setActiveCategory(spec.cat);
         setActiveRowIndex(0);
-        showToast(`次の未完了へジャンプ: ${spec.cat}`, 'info');
+        showToast(t('toast.jumpNext', { cat: tCat(spec.cat) }), 'info');
         return;
       }
     }
-    showToast('すべてのカテゴリの入力が完了しています！🎉', 'success');
-  }, [activeCategory, answers, showToast]);
+    showToast(t('toast.allCompleted'), 'success');
+  }, [activeCategory, answers, showToast, t, tCat]);
 
   // Clear active category marks
   const handleClearActiveCategory = useCallback(() => {
@@ -240,8 +240,8 @@ export default function App() {
       });
       return next;
     });
-    showToast(`${spec.cat} の入力をクリアしました`, 'info');
-  }, [activeCategory, showToast]);
+    showToast(t('toast.categoryCleared', { cat: tCat(spec.cat) }), 'info');
+  }, [activeCategory, showToast, t, tCat]);
 
   // Generate Survey Export Data mapped to 3 columns per row: [Not Eaten (1 or empty), Frequency (1-3), Occasion (1-3)]
   const generateSurveyExportData = useCallback((delimiter: string = ',') => {
@@ -290,8 +290,8 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('1984 Survey CSV downloaded successfully!', 'success');
-  }, [generateSurveyExportData, showToast]);
+    showToast(t('toast.csvDownloaded'), 'success');
+  }, [generateSurveyExportData, showToast, t]);
 
   // Copy TSV to clipboard (3 columns per row)
   const handleCopyTsv = useCallback(async () => {
@@ -310,11 +310,11 @@ export default function App() {
         document.execCommand('copy');
         document.body.removeChild(ta);
       }
-      showToast('Copied 1984 TSV to clipboard (Excel 3-Column format)!', 'success');
+      showToast(t('toast.tsvCopied'), 'success');
     } catch {
       showToast('Failed to copy TSV to clipboard', 'warning');
     }
-  }, [generateSurveyExportData, showToast]);
+  }, [generateSurveyExportData, showToast, t]);
 
   // CSV Download with validation
   const handleDownloadCsv = useCallback(() => {
@@ -324,7 +324,7 @@ export default function App() {
       let started = 0;
       spec.ids.forEach(id => {
         if (isRowComplete(answers[id])) filled++;
-        if (isRowStarted(answers[id])) started++;
+        if (answers[id] !== undefined) started++;
       });
       if (filled < spec.ids.length) {
         incomplete.push({
@@ -369,7 +369,6 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore when typing inside interactive elements like input, select, button, textarea
       const targetTag = document.activeElement?.tagName;
       if (
         targetTag === 'INPUT' ||
@@ -382,7 +381,7 @@ export default function App() {
 
       if (e.key === 'c' || e.key === 'C') {
         setSelectionBox(null);
-        showToast('Cleared selection box', 'info');
+        showToast(t('toast.selectionBoxCleared'), 'info');
         return;
       }
 
@@ -424,13 +423,11 @@ export default function App() {
         e.preventDefault();
         const val = parseInt(e.key, 10) as 1 | 2 | 3;
 
-        // If frequency is unset or both frequency & occasion were already set (re-entering)
         if (
           !curAns ||
           curAns.frequency === null ||
           (curAns.frequency !== null && curAns.occasion !== null)
         ) {
-          // Pressing numbers 1-3 when frequency is unset selects frequency
           setAnswers(prev => ({
             ...prev,
             [item.id]: {
@@ -440,9 +437,7 @@ export default function App() {
               occasion: null
             }
           }));
-          // Waiting for occasion, do not advance row
         } else if (curAns && curAns.frequency !== null && curAns.occasion === null) {
-          // Immediately after frequency is chosen, the next 1-3 keypress selects occasion and auto-advances
           setAnswers(prev => ({
             ...prev,
             [item.id]: {
@@ -491,7 +486,7 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showToast]);
+  }, [showToast, t]);
 
   return (
     <div className="bg-[#090d16] text-slate-100 h-screen w-screen overflow-hidden flex flex-col font-sans select-none notranslate">
@@ -501,12 +496,12 @@ export default function App() {
         onLoadSample={handleLoadSample}
         onRotate={handleRotate}
         onClearBox={handleClearBox}
-        hasDocument={imageSource !== null}
+        hasDocument={!!imageSource}
       />
 
-      {/* Main Workspace */}
+      {/* Main Split Interface */}
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-        {/* Left Viewport Canvas (63%) */}
+        {/* Left Document Viewer (63%) */}
         <DocumentViewer
           imageSource={imageSource}
           imageRotation={imageRotation}
@@ -514,7 +509,7 @@ export default function App() {
           onSelectionBoxChange={setSelectionBox}
           pdfCurrentPage={pdfCurrentPage}
           pdfTotalPages={pdfTotalPages}
-          isPdf={pdfDoc !== null}
+          isPdf={!!pdfDoc}
           onPrevPage={() => {
             if (pdfDoc && pdfCurrentPage > 1) {
               renderPdfPage(pdfDoc, pdfCurrentPage - 1);
@@ -577,5 +572,13 @@ export default function App() {
       {/* Toast Feedback */}
       <ToastContainer toasts={toasts} />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <LanguageProvider>
+      <SurveyAppContent />
+    </LanguageProvider>
   );
 }
