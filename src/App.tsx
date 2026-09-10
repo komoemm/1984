@@ -154,13 +154,14 @@ function SurveyAppContent() {
   const handleToggleNeverEaten = useCallback((itemId: number) => {
     setAnswers(prev => {
       const cur = prev[itemId];
-      const isCurrentlyNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
+      const isCurrentlyNever = cur ? Boolean(cur.neverEaten || cur.never_eaten || cur.notEaten) : false;
       const nextNever = !isCurrentlyNever;
 
       return {
         ...prev,
         [itemId]: {
           neverEaten: nextNever,
+          never_eaten: nextNever,
           notEaten: nextNever,
           frequency: cur?.frequency ?? null,
           occasion: cur?.occasion ?? null
@@ -173,11 +174,12 @@ function SurveyAppContent() {
   const handleSelectFrequency = useCallback((itemId: number, freq: 1 | 2 | 3) => {
     setAnswers(prev => {
       const cur = prev[itemId];
-      const isCurrentlyNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
+      const isCurrentlyNever = cur ? Boolean(cur.neverEaten || cur.never_eaten || cur.notEaten) : false;
       return {
         ...prev,
         [itemId]: {
           neverEaten: isCurrentlyNever,
+          never_eaten: isCurrentlyNever,
           notEaten: isCurrentlyNever,
           frequency: cur?.frequency === freq ? null : freq,
           occasion: cur?.occasion ?? null
@@ -190,11 +192,12 @@ function SurveyAppContent() {
   const handleSelectOccasion = useCallback((itemId: number, occ: 1 | 2 | 3) => {
     setAnswers(prev => {
       const cur = prev[itemId];
-      const isCurrentlyNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
+      const isCurrentlyNever = cur ? Boolean(cur.neverEaten || cur.never_eaten || cur.notEaten) : false;
       return {
         ...prev,
         [itemId]: {
           neverEaten: isCurrentlyNever,
+          never_eaten: isCurrentlyNever,
           notEaten: isCurrentlyNever,
           frequency: cur?.frequency ?? null,
           occasion: cur?.occasion === occ ? null : occ
@@ -203,14 +206,20 @@ function SurveyAppContent() {
     });
   }, []);
 
-  // Clear single row
+  // Clear single row with explicit false and null values
   const handleClearRow = useCallback((itemId: number) => {
-    setAnswers(prev => {
-      const next = { ...prev };
-      delete next[itemId];
-      return next;
-    });
-  }, []);
+    setAnswers(prev => ({
+      ...prev,
+      [itemId]: {
+        neverEaten: false,
+        never_eaten: false,
+        notEaten: false,
+        frequency: null,
+        occasion: null
+      }
+    }));
+    showToast(t('toast.rowReset', { id: itemId }), 'info');
+  }, [showToast, t]);
 
   // Jump next incomplete category
   const handleJumpNextIncomplete = useCallback(() => {
@@ -397,9 +406,9 @@ function SurveyAppContent() {
 
       const item = currentCategoryItems[stateRef.current.activeRowIndex];
       const curAns = stateRef.current.answers[item.id];
-      const currentNever = curAns ? (curAns.neverEaten || !!curAns.notEaten) : false;
+      const currentNever = curAns ? Boolean(curAns.neverEaten || curAns.never_eaten || curAns.notEaten) : false;
 
-      // 1. '0': Toggles "食べたことがない" independently and advances focus to the next row
+      // 1. '0': Toggles Option 1 ("食べたことがない") independently WITHOUT advancing
       if (e.key === '0') {
         e.preventDefault();
         const nextNever = !currentNever;
@@ -407,14 +416,13 @@ function SurveyAppContent() {
           ...prev,
           [item.id]: {
             neverEaten: nextNever,
+            never_eaten: nextNever,
             notEaten: nextNever,
             frequency: curAns?.frequency ?? null,
             occasion: curAns?.occasion ?? null
           }
         }));
-        if (stateRef.current.activeRowIndex < currentCategoryItems.length - 1) {
-          setActiveRowIndex(prev => prev + 1);
-        }
+        // Note: Intentionally do NOT auto-advance. Allows seamless multi-selection of Option 2 & 3.
         return;
       }
 
@@ -428,28 +436,29 @@ function SurveyAppContent() {
           curAns.frequency === null ||
           (curAns.frequency !== null && curAns.occasion !== null)
         ) {
+          // Select Frequency
           setAnswers(prev => ({
             ...prev,
             [item.id]: {
               neverEaten: currentNever,
+              never_eaten: currentNever,
               notEaten: currentNever,
               frequency: val,
               occasion: null
             }
           }));
         } else if (curAns && curAns.frequency !== null && curAns.occasion === null) {
+          // Select Occasion
           setAnswers(prev => ({
             ...prev,
             [item.id]: {
               neverEaten: currentNever,
+              never_eaten: currentNever,
               notEaten: currentNever,
               frequency: curAns.frequency,
               occasion: val
             }
           }));
-          if (stateRef.current.activeRowIndex < currentCategoryItems.length - 1) {
-            setActiveRowIndex(prev => prev + 1);
-          }
         }
         return;
       }
@@ -472,14 +481,20 @@ function SurveyAppContent() {
         return;
       }
 
-      // 5. Spacebar: Clears the current row
+      // 5. Spacebar: Resets the current row
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
-        setAnswers(prev => {
-          const next = { ...prev };
-          delete next[item.id];
-          return next;
-        });
+        setAnswers(prev => ({
+          ...prev,
+          [item.id]: {
+            neverEaten: false,
+            never_eaten: false,
+            notEaten: false,
+            frequency: null,
+            occasion: null
+          }
+        }));
+        showToast(t('toast.rowReset', { id: item.id }), 'info');
         return;
       }
     };

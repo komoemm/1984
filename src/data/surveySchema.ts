@@ -83,19 +83,20 @@ export const OCCASION_OPTIONS: Array<{ value: 1 | 2 | 3; label: string; fullLabe
 
 export function isRowComplete(ans?: SurveyRowAnswer): boolean {
   if (!ans) return false;
-  const isNever = ans.neverEaten || !!ans.notEaten;
-  if (isNever) return true;
-  return ans.frequency !== null && ans.occasion !== null;
+  const isNever = Boolean(ans.neverEaten || ans.never_eaten || ans.notEaten);
+  const hasFreqOcc = ans.frequency !== null && ans.occasion !== null;
+  // A row is considered valid/completed if Option 1 is selected, OR if Frequency/Occasion are chosen, OR both (multi-selected).
+  return isNever || hasFreqOcc;
 }
 
 export function isRowStarted(ans?: SurveyRowAnswer): boolean {
   if (!ans) return false;
-  const isNever = ans.neverEaten || !!ans.notEaten;
+  const isNever = Boolean(ans.neverEaten || ans.never_eaten || ans.notEaten);
   return isNever || ans.frequency !== null || ans.occasion !== null;
 }
 
 export const COLUMN_INFO = [
-  { id: 1, label: '1:ない', title: '① 食べたことがない', desc: '食べたことがない (1を選んだ場合は他の選択肢は無効)', color: 'text-rose-400' },
+  { id: 1, label: '1:ない', title: '① 食べたことがない', desc: '食べたことがない (頻度・機会との併用選択可能)', color: 'text-rose-400' },
   { id: 2, label: '2:よく', title: '② 頻度: よく食べる', desc: 'ほぼ毎日・よく食べる', color: 'text-amber-300' },
   { id: 3, label: '3:割合', title: '② 頻度: 割合よく食べる', desc: '週に数回食べる', color: 'text-amber-300' },
   { id: 4, label: '4:あまり', title: '② 頻度: あまり食べない', desc: '月に数回程度', color: 'text-amber-300' },

@@ -181,7 +181,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       ctx.fillRect(box.x, box.y - 18 / zoom, 100 / zoom, 16 / zoom);
       ctx.font = `${Math.max(10 / zoom, 10)}px sans-serif`;
       ctx.fillStyle = '#38bdf8';
-      ctx.fillText('Focus Region', box.x + 4 / zoom, box.y - 5 / zoom);
+      ctx.fillText(t('viewer.focusRegion'), box.x + 4 / zoom, box.y - 5 / zoom);
       ctx.restore();
     }
 
@@ -367,7 +367,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         <button
           id="toolDrawBtn"
           onClick={() => setActiveTool('draw')}
-          aria-label="Selection Box Tool"
+          aria-label={t('viewer.cropTool')}
           className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded transition cursor-pointer ${
             activeTool === 'draw'
               ? 'bg-blue-600 text-white shadow'
@@ -375,12 +375,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           }`}
         >
           <Crosshair className="w-3.5 h-3.5" />
-          <span>Draw Box</span>
+          <span>{t('viewer.cropTool')}</span>
         </button>
         <button
           id="toolPanBtn"
           onClick={() => setActiveTool('pan')}
-          aria-label="Pan Canvas Tool"
+          aria-label={t('viewer.panTool')}
           className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer ${
             activeTool === 'pan'
               ? 'bg-blue-600 text-white shadow'
@@ -388,13 +388,14 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           }`}
         >
           <Hand className="w-3.5 h-3.5" />
-          <span>Pan</span>
+          <span>{t('viewer.panTool')}</span>
         </button>
         <div className="h-4 w-px bg-slate-700 mx-1" />
         <button
           id="zoomOutBtn"
           onClick={() => setZoom(prev => Math.max(prev * 0.8, 0.1))}
-          aria-label="Zoom Out"
+          aria-label={t('viewer.zoomOut')}
+          title={t('viewer.zoomOut')}
           className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition cursor-pointer"
         >
           <ZoomOut className="w-3.5 h-3.5" />
@@ -409,7 +410,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         <button
           id="zoomInBtn"
           onClick={() => setZoom(prev => Math.min(prev * 1.25, 8.0))}
-          aria-label="Zoom In"
+          aria-label={t('viewer.zoomIn')}
+          title={t('viewer.zoomIn')}
           className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition cursor-pointer"
         >
           <ZoomIn className="w-3.5 h-3.5" />
@@ -417,8 +419,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         <button
           id="zoomFitBtn"
           onClick={fitImage}
-          title="Fit to Screen"
-          aria-label="Fit Document to Screen"
+          title={t('viewer.fitScreen')}
+          aria-label={t('viewer.fitScreen')}
           className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition cursor-pointer"
         >
           <Maximize className="w-3.5 h-3.5" />
@@ -435,19 +437,21 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             id="prevPageBtn"
             onClick={onPrevPage}
             disabled={pdfCurrentPage <= 1}
-            aria-label="Previous Page"
+            aria-label={t('viewer.prevPage')}
+            title={t('viewer.prevPage')}
             className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <span id="pageIndicator" className="font-mono text-slate-200">
-            {pdfCurrentPage} / {pdfTotalPages}
+            {t('viewer.pageIndicator', { current: pdfCurrentPage, total: pdfTotalPages })}
           </span>
           <button
             id="nextPageBtn"
             onClick={onNextPage}
             disabled={pdfCurrentPage >= pdfTotalPages}
-            aria-label="Next Page"
+            aria-label={t('viewer.nextPage')}
+            title={t('viewer.nextPage')}
             className="p-1 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
           >
             <ChevronRight className="w-4 h-4" />
@@ -530,7 +534,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             id="boxCoordsBadge"
             className="absolute bottom-3 left-3 z-20 bg-slate-900/90 border border-slate-700 text-[10px] font-mono text-slate-300 px-2.5 py-1 rounded-md shadow pointer-events-none"
           >
-            Crop Region:{' '}
+            {t('viewer.cropRegion')}:{' '}
             <span id="boxCoordsText">
               X:{Math.round(selectionBox.x)} Y:{Math.round(selectionBox.y)}{' '}
               {Math.round(selectionBox.w)}x{Math.round(selectionBox.h)}px

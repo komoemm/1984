@@ -314,6 +314,19 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
       </div>
     </div>
   );
+}, (prev, next) => {
+  if (prev.isActive !== next.isActive) return false;
+  if (prev.rowIndex !== next.rowIndex) return false;
+  if (prev.item.id !== next.item.id) return false;
+
+  const prevNever = Boolean(prev.ans?.neverEaten || prev.ans?.never_eaten || prev.ans?.notEaten);
+  const nextNever = Boolean(next.ans?.neverEaten || next.ans?.never_eaten || next.ans?.notEaten);
+  if (prevNever !== nextNever) return false;
+
+  if ((prev.ans?.frequency ?? null) !== (next.ans?.frequency ?? null)) return false;
+  if ((prev.ans?.occasion ?? null) !== (next.ans?.occasion ?? null)) return false;
+
+  return true;
 });
 SurveyRowItem.displayName = 'SurveyRowItem';
 
