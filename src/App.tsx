@@ -151,48 +151,52 @@ export default function App() {
     showToast('Cleared selection box', 'info');
   }, [showToast]);
 
-  // Toggle "① 食べたことがない" - clears frequency and occasion
-  const handleToggleNotEaten = useCallback((itemId: number) => {
+  // Toggle "① 食べたことがない" (Never eaten) independently without altering frequency or occasion
+  const handleToggleNeverEaten = useCallback((itemId: number) => {
     setAnswers(prev => {
       const cur = prev[itemId];
-      if (cur?.notEaten) {
-        return {
-          ...prev,
-          [itemId]: { notEaten: false, frequency: null, occasion: null }
-        };
-      } else {
-        return {
-          ...prev,
-          [itemId]: { notEaten: true, frequency: null, occasion: null }
-        };
-      }
-    });
-  }, []);
-
-  // Select Frequency
-  const handleSelectFrequency = useCallback((itemId: number, freq: 1 | 2 | 3) => {
-    setAnswers(prev => {
-      const cur = prev[itemId];
+      const isCurrentlyNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
+      const nextNever = !isCurrentlyNever;
       return {
         ...prev,
         [itemId]: {
-          notEaten: false,
-          frequency: cur?.frequency === freq ? null : freq,
-          occasion: cur?.notEaten ? null : (cur?.occasion ?? null)
+          neverEaten: nextNever,
+          notEaten: nextNever,
+          frequency: cur?.frequency ?? null,
+          occasion: cur?.occasion ?? null
         }
       };
     });
   }, []);
 
-  // Select Occasion
-  const handleSelectOccasion = useCallback((itemId: number, occ: 1 | 2 | 3) => {
+  // Select Frequency independently without altering neverEaten
+  const handleSelectFrequency = useCallback((itemId: number, freq: 1 | 2 | 3) => {
     setAnswers(prev => {
       const cur = prev[itemId];
+      const isNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
       return {
         ...prev,
         [itemId]: {
-          notEaten: false,
-          frequency: cur?.notEaten ? null : (cur?.frequency ?? null),
+          neverEaten: isNever,
+          notEaten: isNever,
+          frequency: cur?.frequency === freq ? null : freq,
+          occasion: cur?.occasion ?? null
+        }
+      };
+    });
+  }, []);
+
+  // Select Occasion independently without altering neverEaten
+  const handleSelectOccasion = useCallback((itemId: number, occ: 1 | 2 | 3) => {
+    setAnswers(prev => {
+      const cur = prev[itemId];
+      const isNever = cur ? (cur.neverEaten || !!cur.notEaten) : false;
+      return {
+        ...prev,
+        [itemId]: {
+          neverEaten: isNever,
+          notEaten: isNever,
+          frequency: cur?.frequency ?? null,
           occasion: cur?.occasion === occ ? null : occ
         }
       };
@@ -262,10 +266,11 @@ export default function App() {
       header2.push(`"行${item.id}_機会"`);
 
       const ans = answers[item.id];
+      const isNever = ans ? (ans.neverEaten || !!ans.notEaten) : false;
       // [Not Eaten (1 or empty), Frequency (1-3), Occasion (1-3)]
-      dataRow.push(ans?.notEaten ? '"1"' : '""');
-      dataRow.push(ans && !ans.notEaten && ans.frequency !== null ? `"${ans.frequency}"` : '""');
-      dataRow.push(ans && !ans.notEaten && ans.occasion !== null ? `"${ans.occasion}"` : '""');
+      dataRow.push(isNever ? '"1"' : '""');
+      dataRow.push(ans && ans.frequency !== null ? `"${ans.frequency}"` : '""');
+      dataRow.push(ans && ans.occasion !== null ? `"${ans.occasion}"` : '""');
     });
 
     return [
@@ -364,10 +369,13 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore when typing inside input or select
+      // Ignore when typing inside interactive elements like input, select, button, textarea
+      const targetTag = document.activeElement?.tagName;
       if (
-        document.activeElement?.tagName === 'INPUT' ||
-        document.activeElement?.tagName === 'SELECT'
+        targetTag === 'INPUT' ||
+        targetTag === 'SELECT' ||
+        targetTag === 'BUTTON' ||
+        targetTag === 'TEXTAREA'
       ) {
         return;
       }
@@ -390,17 +398,19 @@ export default function App() {
 
       const item = currentCategoryItems[stateRef.current.activeRowIndex];
       const curAns = stateRef.current.answers[item.id];
+      const currentNever = curAns ? (curAns.neverEaten || !!curAns.notEaten) : false;
 
-      // 1. '0': Toggles "食べたことがない" and immediately advances focus to the next row
+      // 1. '0': Toggles "食べたことがない" independently and advances focus to the next row
       if (e.key === '0') {
         e.preventDefault();
-        const nextNotEaten = !curAns?.notEaten;
+        const nextNever = !currentNever;
         setAnswers(prev => ({
           ...prev,
           [item.id]: {
-            notEaten: nextNotEaten,
-            frequency: null,
-            occasion: null
+            neverEaten: nextNever,
+            notEaten: nextNever,
+            frequency: curAns?.frequency ?? null,
+            occasion: curAns?.occasion ?? null
           }
         }));
         if (stateRef.current.activeRowIndex < currentCategoryItems.length - 1) {
@@ -414,10 +424,9 @@ export default function App() {
         e.preventDefault();
         const val = parseInt(e.key, 10) as 1 | 2 | 3;
 
-        // If frequency is unset (or notEaten was true, or both were already set and user is re-entering)
+        // If frequency is unset or both frequency & occasion were already set (re-entering)
         if (
           !curAns ||
-          curAns.notEaten ||
           curAns.frequency === null ||
           (curAns.frequency !== null && curAns.occasion !== null)
         ) {
@@ -425,7 +434,8 @@ export default function App() {
           setAnswers(prev => ({
             ...prev,
             [item.id]: {
-              notEaten: false,
+              neverEaten: currentNever,
+              notEaten: currentNever,
               frequency: val,
               occasion: null
             }
@@ -436,7 +446,8 @@ export default function App() {
           setAnswers(prev => ({
             ...prev,
             [item.id]: {
-              notEaten: false,
+              neverEaten: currentNever,
+              notEaten: currentNever,
               frequency: curAns.frequency,
               occasion: val
             }
@@ -529,7 +540,8 @@ export default function App() {
           activeRowIndex={activeRowIndex}
           onSelectRowIndex={setActiveRowIndex}
           answers={answers}
-          onToggleNotEaten={handleToggleNotEaten}
+          onToggleNeverEaten={handleToggleNeverEaten}
+          onToggleNotEaten={handleToggleNeverEaten}
           onSelectFrequency={handleSelectFrequency}
           onSelectOccasion={handleSelectOccasion}
           onClearRow={handleClearRow}

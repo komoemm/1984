@@ -83,13 +83,15 @@ export const OCCASION_OPTIONS: Array<{ value: 1 | 2 | 3; label: string; fullLabe
 
 export function isRowComplete(ans?: SurveyRowAnswer): boolean {
   if (!ans) return false;
-  if (ans.notEaten) return true;
+  const isNever = ans.neverEaten || !!ans.notEaten;
+  if (isNever) return true;
   return ans.frequency !== null && ans.occasion !== null;
 }
 
 export function isRowStarted(ans?: SurveyRowAnswer): boolean {
   if (!ans) return false;
-  return ans.notEaten || ans.frequency !== null || ans.occasion !== null;
+  const isNever = ans.neverEaten || !!ans.notEaten;
+  return isNever || ans.frequency !== null || ans.occasion !== null;
 }
 
 export const COLUMN_INFO = [
