@@ -111,7 +111,7 @@ export const COLUMN_INFO = [
   { id: 3, label: '3:割合', title: '② 頻度: 割合よく食べる', desc: '週に数回食べる', color: 'text-amber-300' },
   { id: 4, label: '4:あまり', title: '② 頻度: あまり食べない', desc: '月に数回程度', color: 'text-amber-300' },
   { id: 5, label: '5:家で', title: '③ 機会: 家で作る', desc: '家庭内で調理・手作り', color: 'text-emerald-300' },
-  { id: 6, label: '6:調理', title: '③ 機会: 調理品を買う', desc: '市販の惣菜・レトルト・弁当', color: 'text-emerald-300' },
+  { id: 6, label: '6:調理', title: '③ 機会: 調理品を買う', desc: '市販の調理品・レトルト・弁当', color: 'text-emerald-300' },
   { id: 7, label: '7:外食', title: '③ 機会: 外食・店', desc: '外食・店舗での食事', color: 'text-emerald-300' }
 ];
 
@@ -175,7 +175,7 @@ export function createSampleSurveyFormImage(): HTMLCanvasElement {
   ctx.textAlign = 'center';
   ctx.fillText('①未食', startX + 380, startY + 32);
   ctx.fillText('②頻度 (よく/割と/あまり)', startX + 600, startY + 32);
-  ctx.fillText('③入手・機会 (自炊/惣菜/外食)', startX + 940, startY + 32);
+  ctx.fillText('③入手・機会 (家/調理/外食)', startX + 940, startY + 32);
   ctx.fillText('OCR照合印', startX + 1200, startY + 32);
 
   // Draw Sample rows matching RAW_1984_SPEC categories

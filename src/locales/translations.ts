@@ -111,7 +111,7 @@ export const translations = {
     'form.freq2': '2: 割合よく',
     'form.freq3': '3: あまり',
     'form.occ1': '家で作る',
-    'form.occ2': '惣菜・調理済',
+    'form.occ2': '調理',
     'form.occ3': '外食',
     'form.tsvFormatLabel': 'TSV形式:',
     'form.tsvHorizontal': '横1行 (Excel 1-Row)',
