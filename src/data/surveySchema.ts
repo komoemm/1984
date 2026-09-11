@@ -81,18 +81,28 @@ export const OCCASION_OPTIONS: Array<{ value: 1 | 2 | 3; label: string; fullLabe
   { value: 3, label: '3: 外食', fullLabel: '外食' }
 ];
 
+export function hasAnyOccasion(ans?: SurveyRowAnswer): boolean {
+  if (!ans) return false;
+  return Boolean(
+    ans.occasion_home ||
+    ans.occasion_store ||
+    ans.occasion_out ||
+    (ans.occasion !== null && ans.occasion !== undefined)
+  );
+}
+
 export function isRowComplete(ans?: SurveyRowAnswer): boolean {
   if (!ans) return false;
   const isNever = Boolean(ans.neverEaten || ans.never_eaten || ans.notEaten);
-  const hasFreqOcc = ans.frequency !== null && ans.occasion !== null;
-  // A row is considered valid/completed if Option 1 is selected, OR if Frequency/Occasion are chosen, OR both (multi-selected).
+  const hasFreqOcc = ans.frequency !== null && hasAnyOccasion(ans);
+  // A row is considered valid/completed if Option 1 is selected, OR if Frequency and at least one Occasion are chosen, OR both (multi-selected).
   return isNever || hasFreqOcc;
 }
 
 export function isRowStarted(ans?: SurveyRowAnswer): boolean {
   if (!ans) return false;
   const isNever = Boolean(ans.neverEaten || ans.never_eaten || ans.notEaten);
-  return isNever || ans.frequency !== null || ans.occasion !== null;
+  return isNever || ans.frequency !== null || hasAnyOccasion(ans);
 }
 
 export const COLUMN_INFO = [

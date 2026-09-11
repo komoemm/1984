@@ -188,11 +188,24 @@ function SurveyAppContent() {
     });
   }, []);
 
-  // 3. Independent Select for "③ 機会" (Occasion)
-  const handleSelectOccasion = useCallback((itemId: number, occ: 1 | 2 | 3) => {
+  // 3. Independent Multi-Toggle for "③ 機会" (Occasion: 1: Homemade, 2: Prepared/Store, 3: Dining out)
+  const handleToggleOccasion = useCallback((itemId: number, occ: 'home' | 'store' | 'out' | 1 | 2 | 3) => {
     setAnswers(prev => {
       const cur = prev[itemId];
-      const isCurrentlyNever = cur ? Boolean(cur.neverEaten || cur.never_eaten || cur.notEaten) : false;
+      const isCurrentlyNever = cur ? Boolean(cur.never_eaten || cur.neverEaten || cur.notEaten) : false;
+
+      let nextHome = Boolean(cur?.occasion_home);
+      let nextStore = Boolean(cur?.occasion_store);
+      let nextOut = Boolean(cur?.occasion_out);
+
+      if (occ === 'home' || occ === 1) {
+        nextHome = !nextHome;
+      } else if (occ === 'store' || occ === 2) {
+        nextStore = !nextStore;
+      } else if (occ === 'out' || occ === 3) {
+        nextOut = !nextOut;
+      }
+
       return {
         ...prev,
         [itemId]: {
@@ -200,13 +213,17 @@ function SurveyAppContent() {
           never_eaten: isCurrentlyNever,
           notEaten: isCurrentlyNever,
           frequency: cur?.frequency ?? null,
-          occasion: cur?.occasion === occ ? null : occ
+          occasion_home: nextHome,
+          occasion_store: nextStore,
+          occasion_out: nextOut,
+          // Compatibility
+          occasion: nextHome ? 1 : nextStore ? 2 : nextOut ? 3 : null
         }
       };
     });
   }, []);
 
-  // Clear single row with explicit false and null values
+  // Clear single row with explicit false and null values across all 5 fields
   const handleClearRow = useCallback((itemId: number) => {
     setAnswers(prev => ({
       ...prev,
@@ -215,6 +232,9 @@ function SurveyAppContent() {
         never_eaten: false,
         notEaten: false,
         frequency: null,
+        occasion_home: false,
+        occasion_store: false,
+        occasion_out: false,
         occasion: null
       }
     }));
@@ -252,7 +272,8 @@ function SurveyAppContent() {
     showToast(t('toast.categoryCleared', { cat: tCat(spec.cat) }), 'info');
   }, [activeCategory, showToast, t, tCat]);
 
-  // Generate Survey Export Data mapped to 3 columns per row: [Not Eaten (1 or empty), Frequency (1-3), Occasion (1-3)]
+  // Generate Survey Export Data mapped to customer's 5 columns per item:
+  // [Never Eaten, Frequency, Occasion-Home, Occasion-Store, Occasion-DiningOut]
   const generateSurveyExportData = useCallback((delimiter: string = ',') => {
     const header1 = ['Survey File', 'Category'];
     const header2 = ['Filename / Page', 'Field'];
@@ -262,24 +283,32 @@ function SurveyAppContent() {
     ];
 
     FULL_175_SCHEMA.forEach(item => {
-      // 1. Not Eaten
-      header1.push(`"${item.cat}"`);
-      header2.push(`"行${item.id}_未食"`);
-
-      // 2. Frequency
-      header1.push(`"${item.cat}"`);
-      header2.push(`"行${item.id}_頻度"`);
-
-      // 3. Occasion
-      header1.push(`"${item.cat}"`);
-      header2.push(`"行${item.id}_機会"`);
+      // 5 Columns per item: [Never Eaten] [Frequency] [Occasion-Home] [Occasion-Store] [Occasion-DiningOut]
+      header1.push(`"${item.cat}"`, `"${item.cat}"`, `"${item.cat}"`, `"${item.cat}"`, `"${item.cat}"`);
+      header2.push(
+        `"行${item.id}_未食"`,
+        `"行${item.id}_頻度"`,
+        `"行${item.id}_機会_家"`,
+        `"行${item.id}_機会_調理"`,
+        `"行${item.id}_機会_外食"`
+      );
 
       const ans = answers[item.id];
-      const isNever = ans ? (ans.neverEaten || !!ans.notEaten) : false;
-      // [Not Eaten (1 or empty), Frequency (1-3), Occasion (1-3)]
-      dataRow.push(isNever ? '"1"' : '""');
-      dataRow.push(ans && ans.frequency !== null ? `"${ans.frequency}"` : '""');
-      dataRow.push(ans && ans.occasion !== null ? `"${ans.occasion}"` : '""');
+      const isNever = ans ? Boolean(ans.never_eaten || ans.neverEaten || ans.notEaten) : false;
+      const isTab = delimiter === '\t';
+
+      // Col 1 (食べたことない): row.never_eaten ? "1" : ""
+      const col1 = isNever ? (isTab ? '1' : '"1"') : (isTab ? '' : '""');
+      // Col 2 (頻度): row.frequency ? row.frequency.toString() : ""
+      const col2 = ans && ans.frequency !== null && ans.frequency !== undefined ? (isTab ? String(ans.frequency) : `"${ans.frequency}"`) : (isTab ? '' : '""');
+      // Col 3 (機会 家): row.occasion_home ? "1" : ""
+      const col3 = ans && ans.occasion_home ? (isTab ? '1' : '"1"') : (isTab ? '' : '""');
+      // Col 4 (機会 調理): row.occasion_store ? "1" : ""
+      const col4 = ans && ans.occasion_store ? (isTab ? '1' : '"1"') : (isTab ? '' : '""');
+      // Col 5 (機会 外食): row.occasion_out ? "1" : ""
+      const col5 = ans && ans.occasion_out ? (isTab ? '1' : '"1"') : (isTab ? '' : '""');
+
+      dataRow.push(col1, col2, col3, col4, col5);
     });
 
     return [
@@ -302,9 +331,20 @@ function SurveyAppContent() {
     showToast(t('toast.csvDownloaded'), 'success');
   }, [generateSurveyExportData, showToast, t]);
 
-  // Copy TSV to clipboard (3 columns per row)
+  // Copy TSV to clipboard (5 columns per item for direct paste into Excel template)
   const handleCopyTsv = useCallback(async () => {
-    const tsvContent = generateSurveyExportData('\t');
+    const currentCategoryItems = FULL_175_SCHEMA.filter(i => i.cat === activeCategory);
+    const tsvContent = currentCategoryItems.map(item => {
+      const ans = answers[item.id];
+      const isNever = ans ? Boolean(ans.never_eaten || ans.neverEaten || ans.notEaten) : false;
+      const col1 = isNever ? '1' : '';
+      const col2 = ans && ans.frequency !== null && ans.frequency !== undefined ? String(ans.frequency) : '';
+      const col3 = ans && ans.occasion_home ? '1' : '';
+      const col4 = ans && ans.occasion_store ? '1' : '';
+      const col5 = ans && ans.occasion_out ? '1' : '';
+      return `${col1}\t${col2}\t${col3}\t${col4}\t${col5}`;
+    }).join('\r\n');
+
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(tsvContent);
@@ -319,11 +359,11 @@ function SurveyAppContent() {
         document.execCommand('copy');
         document.body.removeChild(ta);
       }
-      showToast(t('toast.tsvCopied'), 'success');
+      showToast(t('toast.categoryTsvCopied', { cat: tCat(activeCategory), count: currentCategoryItems.length }), 'success');
     } catch {
       showToast('Failed to copy TSV to clipboard', 'warning');
     }
-  }, [generateSurveyExportData, showToast, t]);
+  }, [activeCategory, answers, showToast, t, tCat]);
 
   // CSV Download with validation
   const handleDownloadCsv = useCallback(() => {
@@ -419,51 +459,97 @@ function SurveyAppContent() {
             never_eaten: nextNever,
             notEaten: nextNever,
             frequency: curAns?.frequency ?? null,
+            occasion_home: curAns?.occasion_home ?? false,
+            occasion_store: curAns?.occasion_store ?? false,
+            occasion_out: curAns?.occasion_out ?? false,
             occasion: curAns?.occasion ?? null
           }
         }));
-        // Note: Intentionally do NOT auto-advance. Allows seamless multi-selection of Option 2 & 3.
         return;
       }
 
-      // 2. Numbers 1-3 for Frequency and Occasion
+      // 2. Numbers 1, 2, 3: Frequency buttons (1: よく食べる, 2: 割合よく, 3: あまり)
       if (e.key === '1' || e.key === '2' || e.key === '3') {
         e.preventDefault();
         const val = parseInt(e.key, 10) as 1 | 2 | 3;
-
-        if (
-          !curAns ||
-          curAns.frequency === null ||
-          (curAns.frequency !== null && curAns.occasion !== null)
-        ) {
-          // Select Frequency
-          setAnswers(prev => ({
-            ...prev,
-            [item.id]: {
-              neverEaten: currentNever,
-              never_eaten: currentNever,
-              notEaten: currentNever,
-              frequency: val,
-              occasion: null
-            }
-          }));
-        } else if (curAns && curAns.frequency !== null && curAns.occasion === null) {
-          // Select Occasion
-          setAnswers(prev => ({
-            ...prev,
-            [item.id]: {
-              neverEaten: currentNever,
-              never_eaten: currentNever,
-              notEaten: currentNever,
-              frequency: curAns.frequency,
-              occasion: val
-            }
-          }));
-        }
+        const nextFreq = curAns?.frequency === val ? null : val;
+        setAnswers(prev => ({
+          ...prev,
+          [item.id]: {
+            neverEaten: currentNever,
+            never_eaten: currentNever,
+            notEaten: currentNever,
+            frequency: nextFreq,
+            occasion_home: curAns?.occasion_home ?? false,
+            occasion_store: curAns?.occasion_store ?? false,
+            occasion_out: curAns?.occasion_out ?? false,
+            occasion: curAns?.occasion ?? null
+          }
+        }));
         return;
       }
 
-      // 3. Enter or ArrowDown: Next row
+      // 3. Occasion 1 (家で作る / Homemade): Key 4, 5, or 'h'
+      if (e.key === '4' || e.key === '5' || e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        const nextHome = !Boolean(curAns?.occasion_home);
+        setAnswers(prev => ({
+          ...prev,
+          [item.id]: {
+            neverEaten: currentNever,
+            never_eaten: currentNever,
+            notEaten: currentNever,
+            frequency: curAns?.frequency ?? null,
+            occasion_home: nextHome,
+            occasion_store: curAns?.occasion_store ?? false,
+            occasion_out: curAns?.occasion_out ?? false,
+            occasion: nextHome ? 1 : curAns?.occasion_store ? 2 : curAns?.occasion_out ? 3 : null
+          }
+        }));
+        return;
+      }
+
+      // 4. Occasion 2 (調理品・惣菜 / Prepared): Key 6, or 's'
+      if (e.key === '6' || e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        const nextStore = !Boolean(curAns?.occasion_store);
+        setAnswers(prev => ({
+          ...prev,
+          [item.id]: {
+            neverEaten: currentNever,
+            never_eaten: currentNever,
+            notEaten: currentNever,
+            frequency: curAns?.frequency ?? null,
+            occasion_home: curAns?.occasion_home ?? false,
+            occasion_store: nextStore,
+            occasion_out: curAns?.occasion_out ?? false,
+            occasion: curAns?.occasion_home ? 1 : nextStore ? 2 : curAns?.occasion_out ? 3 : null
+          }
+        }));
+        return;
+      }
+
+      // 5. Occasion 3 (外食 / Dining out): Key 7, or 'o'
+      if (e.key === '7' || e.key === 'o' || e.key === 'O') {
+        e.preventDefault();
+        const nextOut = !Boolean(curAns?.occasion_out);
+        setAnswers(prev => ({
+          ...prev,
+          [item.id]: {
+            neverEaten: currentNever,
+            never_eaten: currentNever,
+            notEaten: currentNever,
+            frequency: curAns?.frequency ?? null,
+            occasion_home: curAns?.occasion_home ?? false,
+            occasion_store: curAns?.occasion_store ?? false,
+            occasion_out: nextOut,
+            occasion: curAns?.occasion_home ? 1 : curAns?.occasion_store ? 2 : nextOut ? 3 : null
+          }
+        }));
+        return;
+      }
+
+      // 6. Enter or ArrowDown: Next row
       if (e.key === 'Enter' || e.key === 'ArrowDown') {
         e.preventDefault();
         if (stateRef.current.activeRowIndex < currentCategoryItems.length - 1) {
@@ -472,7 +558,7 @@ function SurveyAppContent() {
         return;
       }
 
-      // 4. ArrowUp: Previous row
+      // 7. ArrowUp: Previous row
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (stateRef.current.activeRowIndex > 0) {
@@ -481,7 +567,7 @@ function SurveyAppContent() {
         return;
       }
 
-      // 5. Spacebar: Resets the current row
+      // 8. Spacebar: Resets the current row across all 5 fields
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         setAnswers(prev => ({
@@ -491,6 +577,9 @@ function SurveyAppContent() {
             never_eaten: false,
             notEaten: false,
             frequency: null,
+            occasion_home: false,
+            occasion_store: false,
+            occasion_out: false,
             occasion: null
           }
         }));
@@ -553,7 +642,8 @@ function SurveyAppContent() {
           onToggleNeverEaten={handleToggleNeverEaten}
           onToggleNotEaten={handleToggleNeverEaten}
           onSelectFrequency={handleSelectFrequency}
-          onSelectOccasion={handleSelectOccasion}
+          onToggleOccasion={handleToggleOccasion}
+          onSelectOccasion={handleToggleOccasion}
           onClearRow={handleClearRow}
           onJumpNextIncomplete={handleJumpNextIncomplete}
           onOpenMatrixModal={() => setIsMatrixOpen(true)}

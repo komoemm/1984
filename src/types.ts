@@ -11,12 +11,32 @@ export interface SurveyItem {
   id: number;
 }
 
-export interface SurveyRowAnswer {
-  neverEaten: boolean;          // 1: 食べたことがない (Never eaten)
-  never_eaten?: boolean;        // Compatibility alias
-  frequency: 1 | 2 | 3 | null;  // 2: 1: よく食べる, 2: 割合よく食べる, 3: あまり食べない
-  occasion: 1 | 2 | 3 | null;   // 3: 1: 家で作る, 2: 調理したものを買う, 3: 外食
-  notEaten?: boolean;           // Backward compatibility alias
+export interface SurveyRowData {
+  never_eaten: boolean;     // 1: 食べたことない -> 1 if selected
+  frequency: number | null; // 2: 頻度 (1: よく食べる, 2: 割合よく食べる, 3: あまり食べない)
+  occasion_home: boolean;   // 3: 機会 (家) -> 1 if selected
+  occasion_store: boolean;  // 4: 機会 (調理) -> 1 if selected
+  occasion_out: boolean;    // 5: 機会 (外食) -> 1 if selected
+
+  // Backward compatibility aliases
+  neverEaten?: boolean;
+  notEaten?: boolean;
+  occasion?: 1 | 2 | 3 | null;
+}
+
+export type SurveyRowAnswer = SurveyRowData;
+
+export function createDefaultSurveyRow(): SurveyRowData {
+  return {
+    never_eaten: false,
+    neverEaten: false,
+    notEaten: false,
+    frequency: null,
+    occasion_home: false,
+    occasion_store: false,
+    occasion_out: false,
+    occasion: null
+  };
 }
 
 export interface CategoryStatus {

@@ -7,7 +7,7 @@ import {
   Check,
   RotateCcw
 } from 'lucide-react';
-import { CategorySpec, SurveyItem, SurveyRowAnswer } from '../types';
+import { CategorySpec, SurveyItem, SurveyRowData } from '../types';
 import { isRowComplete, isRowStarted } from '../data/surveySchema';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -54,40 +54,52 @@ FrequencyOptionButton.displayName = 'FrequencyOptionButton';
 
 interface OccasionOptionButtonProps {
   itemId: number;
-  value: 1 | 2 | 3;
+  type: 'home' | 'store' | 'out';
+  code: 1 | 2 | 3;
   label: string;
+  badgeLabel: string;
   isSelected: boolean;
-  onSelect: (itemId: number, occ: 1 | 2 | 3) => void;
+  onToggle: (itemId: number, occ: 'home' | 'store' | 'out' | 1 | 2 | 3) => void;
   ariaLabel: string;
 }
 
 const OccasionOptionButton = React.memo<OccasionOptionButtonProps>(({
   itemId,
-  value,
+  type,
+  code,
   label,
+  badgeLabel,
   isSelected,
-  onSelect,
+  onToggle,
   ariaLabel
 }) => {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onSelect(itemId, value);
+    onToggle(itemId, type);
   };
 
   return (
     <button
       type="button"
-      role="button"
-      aria-pressed={isSelected}
+      role="checkbox"
+      aria-checked={isSelected}
       aria-label={ariaLabel}
       onClick={handleClick}
-      className={`py-1.5 px-1 text-center font-medium text-[11px] rounded transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 cursor-pointer ${
+      className={`py-1.5 px-1 text-center font-medium text-[11px] rounded transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 cursor-pointer flex items-center justify-center gap-1 ${
         isSelected
           ? 'bg-emerald-400 text-slate-950 font-bold border-2 border-emerald-200 shadow-sm ring-1 ring-emerald-300'
           : 'bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-700'
       }`}
     >
-      {label}
+      <span className="truncate">{label}</span>
+      {isSelected && (
+        <span
+          className="px-1 py-0.2 bg-slate-950 text-emerald-300 font-mono text-[10px] rounded font-black border border-emerald-300/60"
+          aria-hidden="true"
+        >
+          : 1
+        </span>
+      )}
     </button>
   );
 });
@@ -97,11 +109,11 @@ interface SurveyRowItemProps {
   item: SurveyItem;
   rowIndex: number;
   isActive: boolean;
-  ans?: SurveyRowAnswer;
+  ans?: SurveyRowData;
   onSelectRowIndex: (idx: number) => void;
   onToggleNeverEaten: (itemId: number) => void;
   onSelectFrequency: (itemId: number, freq: 1 | 2 | 3) => void;
-  onSelectOccasion: (itemId: number, occ: 1 | 2 | 3) => void;
+  onToggleOccasion: (itemId: number, occ: 'home' | 'store' | 'out' | 1 | 2 | 3) => void;
   onClearRow: (itemId: number) => void;
 }
 
@@ -113,13 +125,17 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
   onSelectRowIndex,
   onToggleNeverEaten,
   onSelectFrequency,
-  onSelectOccasion,
+  onToggleOccasion,
   onClearRow
 }) => {
   const { t } = useLanguage();
-  const isNeverEaten = ans ? (ans.neverEaten || !!ans.notEaten) : false;
+  const isNeverEaten = ans ? Boolean(ans.never_eaten || ans.neverEaten || ans.notEaten) : false;
   const complete = isRowComplete(ans);
   const started = isRowStarted(ans);
+
+  const isHome = Boolean(ans?.occasion_home);
+  const isStore = Boolean(ans?.occasion_store);
+  const isOut = Boolean(ans?.occasion_out);
 
   const handleRowClick = () => {
     onSelectRowIndex(rowIndex);
@@ -143,9 +159,9 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
   ];
 
   const occOptions = [
-    { value: 1 as const, label: t('form.occ1') },
-    { value: 2 as const, label: t('form.occ2') },
-    { value: 3 as const, label: t('form.occ3') }
+    { code: 1 as const, type: 'home' as const, label: t('form.occ1'), badge: t('form.occHomeBadge') },
+    { code: 2 as const, type: 'store' as const, label: t('form.occ2'), badge: t('form.occStoreBadge') },
+    { code: 3 as const, type: 'out' as const, label: t('form.occ3'), badge: t('form.occOutBadge') }
   ];
 
   return (
@@ -163,8 +179,8 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
       }`}
     >
       {/* Row Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center space-x-2 shrink-0">
           <span
             className={`font-mono text-xs px-2.5 py-0.5 rounded border font-extrabold tracking-wide ${
               isActive
@@ -180,35 +196,50 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
         </div>
 
         {/* State Tag & Quick Reset */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
           {isNeverEaten && (
             <span
-              className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/80 text-rose-200 border border-rose-400/80 flex items-center gap-1"
+              className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/80 text-rose-200 border border-rose-400/80 flex items-center gap-1 font-mono"
               aria-label={`Item ${item.id} ${t('form.neverEatenBadge')}`}
             >
               <Check className="w-3 h-3 text-rose-300" aria-hidden="true" /> {t('form.neverEatenBadge')}
             </span>
           )}
 
-          {ans && (ans.frequency !== null || ans.occasion !== null) && (
-            <div className="flex items-center gap-1 text-[10px] font-mono">
-              {ans.frequency !== null && (
-                <span
-                  className="px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-200 font-bold border border-amber-400/80"
-                  aria-label={`Item ${item.id} Frequency ${ans.frequency}`}
-                >
-                  {t('form.freqBadge', { val: ans.frequency })}
-                </span>
-              )}
-              {ans.occasion !== null && (
-                <span
-                  className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-200 font-bold border border-emerald-400/80"
-                  aria-label={`Item ${item.id} Occasion ${ans.occasion}`}
-                >
-                  {t('form.occBadge', { val: ans.occasion })}
-                </span>
-              )}
-            </div>
+          {ans && ans.frequency !== null && (
+            <span
+              className="px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-200 font-bold border border-amber-400/80 text-[10px] font-mono"
+              aria-label={`Item ${item.id} Frequency ${ans.frequency}`}
+            >
+              {t('form.freqBadge', { val: ans.frequency })}
+            </span>
+          )}
+
+          {isHome && (
+            <span
+              className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-200 font-bold border border-emerald-400/80 text-[10px] font-mono"
+              aria-label={`Item ${item.id} ${t('form.occHomeBadge')}`}
+            >
+              {t('form.occHomeBadge')}
+            </span>
+          )}
+
+          {isStore && (
+            <span
+              className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-200 font-bold border border-emerald-400/80 text-[10px] font-mono"
+              aria-label={`Item ${item.id} ${t('form.occStoreBadge')}`}
+            >
+              {t('form.occStoreBadge')}
+            </span>
+          )}
+
+          {isOut && (
+            <span
+              className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-200 font-bold border border-emerald-400/80 text-[10px] font-mono"
+              aria-label={`Item ${item.id} ${t('form.occOutBadge')}`}
+            >
+              {t('form.occOutBadge')}
+            </span>
           )}
 
           {!started && (
@@ -256,6 +287,11 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
             {isNeverEaten ? '✓' : ''}
           </span>
           <span>{t('form.neverEatenOption')}</span>
+          {isNeverEaten && (
+            <span className="px-1.5 py-0.2 bg-rose-950 text-rose-200 font-mono text-[10px] rounded font-black border border-rose-400/60">
+              : 1
+            </span>
+          )}
         </span>
         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/50 text-slate-300 border border-slate-700">
           {t('form.key0Badge')}
@@ -264,7 +300,7 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
 
       {/* 2. Independent Grouped Sub-rows for 頻度 (Frequency) and 機会 (Occasion) */}
       <div className="space-y-1.5">
-        {/* Group A (Frequency): 3 buttons */}
+        {/* Group A (Frequency): 3 buttons (Single choice) */}
         <div
           role="group"
           aria-label={`${t('form.line', { id: item.id })} ${t('form.freqGroupLabel')}`}
@@ -288,7 +324,7 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
           </div>
         </div>
 
-        {/* Group B (Occasion): 3 buttons */}
+        {/* Group B (Occasion): 3 independent multi-toggle buttons */}
         <div
           role="group"
           aria-label={`${t('form.line', { id: item.id })} ${t('form.occGroupLabel')}`}
@@ -298,17 +334,26 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
             {t('form.occGroupLabel')}
           </div>
           <div className="flex-1 grid grid-cols-3 gap-1">
-            {occOptions.map((opt) => (
-              <OccasionOptionButton
-                key={opt.value}
-                itemId={item.id}
-                value={opt.value}
-                label={opt.label}
-                isSelected={ans?.occasion === opt.value}
-                onSelect={onSelectOccasion}
-                ariaLabel={`${t('form.line', { id: item.id })} ${t('form.occGroupLabel')}: ${opt.label}`}
-              />
-            ))}
+            {occOptions.map((opt) => {
+              const isSelected =
+                opt.type === 'home' ? isHome :
+                opt.type === 'store' ? isStore :
+                isOut;
+
+              return (
+                <OccasionOptionButton
+                  key={opt.code}
+                  itemId={item.id}
+                  type={opt.type}
+                  code={opt.code}
+                  label={opt.label}
+                  badgeLabel={opt.badge}
+                  isSelected={isSelected}
+                  onToggle={onToggleOccasion}
+                  ariaLabel={`${t('form.line', { id: item.id })} ${t('form.occGroupLabel')}: ${opt.label}`}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
@@ -319,12 +364,14 @@ export const SurveyRowItem = React.memo<SurveyRowItemProps>(({
   if (prev.rowIndex !== next.rowIndex) return false;
   if (prev.item.id !== next.item.id) return false;
 
-  const prevNever = Boolean(prev.ans?.neverEaten || prev.ans?.never_eaten || prev.ans?.notEaten);
-  const nextNever = Boolean(next.ans?.neverEaten || next.ans?.never_eaten || next.ans?.notEaten);
+  const prevNever = Boolean(prev.ans?.never_eaten || prev.ans?.neverEaten || prev.ans?.notEaten);
+  const nextNever = Boolean(next.ans?.never_eaten || next.ans?.neverEaten || next.ans?.notEaten);
   if (prevNever !== nextNever) return false;
 
   if ((prev.ans?.frequency ?? null) !== (next.ans?.frequency ?? null)) return false;
-  if ((prev.ans?.occasion ?? null) !== (next.ans?.occasion ?? null)) return false;
+  if (Boolean(prev.ans?.occasion_home) !== Boolean(next.ans?.occasion_home)) return false;
+  if (Boolean(prev.ans?.occasion_store) !== Boolean(next.ans?.occasion_store)) return false;
+  if (Boolean(prev.ans?.occasion_out) !== Boolean(next.ans?.occasion_out)) return false;
 
   return true;
 });
@@ -336,11 +383,12 @@ export interface FormPanelProps {
   onSelectCategory: (cat: string) => void;
   activeRowIndex: number;
   onSelectRowIndex: (idx: number) => void;
-  answers: Record<number, SurveyRowAnswer>;
+  answers: Record<number, SurveyRowData>;
   onToggleNeverEaten?: (itemId: number) => void;
   onToggleNotEaten?: (itemId: number) => void;
   onSelectFrequency: (itemId: number, freq: 1 | 2 | 3) => void;
-  onSelectOccasion: (itemId: number, occ: 1 | 2 | 3) => void;
+  onToggleOccasion: (itemId: number, occ: 'home' | 'store' | 'out' | 1 | 2 | 3) => void;
+  onSelectOccasion?: (itemId: number, occ: 1 | 2 | 3) => void;
   onClearRow: (itemId: number) => void;
   onJumpNextIncomplete: () => void;
   onOpenMatrixModal: () => void;
@@ -360,6 +408,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
   onToggleNeverEaten,
   onToggleNotEaten,
   onSelectFrequency,
+  onToggleOccasion,
   onSelectOccasion,
   onClearRow,
   onJumpNextIncomplete,
@@ -373,6 +422,12 @@ export const FormPanel: React.FC<FormPanelProps> = ({
   const { t, tCat } = useLanguage();
 
   const toggleHandler = onToggleNeverEaten || onToggleNotEaten || (() => {});
+  const occasionHandler = onToggleOccasion || ((id: number, occ: 'home' | 'store' | 'out' | 1 | 2 | 3) => {
+    if (onSelectOccasion) {
+      const numericCode: 1 | 2 | 3 = typeof occ === 'number' ? occ : occ === 'home' ? 1 : occ === 'store' ? 2 : 3;
+      onSelectOccasion(id, numericCode);
+    }
+  });
 
   const currentCategorySpec = categories.find(c => c.cat === activeCategory) || categories[0];
   const currentCategoryItems = useMemo(
@@ -542,7 +597,7 @@ export const FormPanel: React.FC<FormPanelProps> = ({
             onSelectRowIndex={onSelectRowIndex}
             onToggleNeverEaten={toggleHandler}
             onSelectFrequency={onSelectFrequency}
-            onSelectOccasion={onSelectOccasion}
+            onToggleOccasion={occasionHandler}
             onClearRow={onClearRow}
           />
         ))}
