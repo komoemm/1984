@@ -155,6 +155,9 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-amber-300 font-mono">
             {t('header.key13')}
           </span>
+          <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-emerald-300 font-mono">
+            {t('header.key79')}
+          </span>
           <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">
             {t('header.keySpace')}
           </span>

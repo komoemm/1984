@@ -49,6 +49,7 @@ function SurveyAppContent() {
   const [isIncompleteWarningOpen, setIsIncompleteWarningOpen] = useState<boolean>(false);
   const [incompleteList, setIncompleteList] = useState<CategoryStatus[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [tsvExportMode, setTsvExportMode] = useState<'horizontal' | 'vertical'>('horizontal');
 
   // Toast Helper
   const showToast = useCallback((text: string, type: 'info' | 'success' | 'warning' = 'info') => {
@@ -331,39 +332,110 @@ function SurveyAppContent() {
     showToast(t('toast.csvDownloaded'), 'success');
   }, [generateSurveyExportData, showToast, t]);
 
-  // Copy TSV to clipboard (5 columns per item for direct paste into Excel template)
-  const handleCopyTsv = useCallback(async () => {
-    const currentCategoryItems = FULL_175_SCHEMA.filter(i => i.cat === activeCategory);
-    const tsvContent = currentCategoryItems.map(item => {
-      const ans = answers[item.id];
-      const isNever = ans ? Boolean(ans.never_eaten || ans.neverEaten || ans.notEaten) : false;
-      const col1 = isNever ? '1' : '';
-      const col2 = ans && ans.frequency !== null && ans.frequency !== undefined ? String(ans.frequency) : '';
-      const col3 = ans && ans.occasion_home ? '1' : '';
-      const col4 = ans && ans.occasion_store ? '1' : '';
-      const col5 = ans && ans.occasion_out ? '1' : '';
-      return `${col1}\t${col2}\t${col3}\t${col4}\t${col5}`;
-    }).join('\r\n');
-
+  // Helper to copy text to clipboard across all browser environments
+  const copyTextToClipboard = useCallback(async (text: string) => {
     try {
       if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(tsvContent);
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = tsvContent;
-        ta.style.position = 'fixed';
-        ta.style.left = '-999999px';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
+        await navigator.clipboard.writeText(text);
+        return true;
       }
-      showToast(t('toast.categoryTsvCopied', { cat: tCat(activeCategory), count: currentCategoryItems.length }), 'success');
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-999999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return success;
     } catch {
+      return false;
+    }
+  }, []);
+
+  // Helper to extract 5 Excel columns per survey item
+  // Col 1: 食べたことない (1 or empty)
+  // Col 2: 頻度 (1, 2, 3 or empty)
+  // Col 3: 機会 家 (1 or empty)
+  // Col 4: 機会 調理 (1 or empty)
+  // Col 5: 機会 外食 (1 or empty)
+  const getItemFiveColumns = useCallback((itemId: number) => {
+    const ans = answers[itemId];
+    const isNever = ans ? Boolean(ans.never_eaten || ans.neverEaten || ans.notEaten) : false;
+    return [
+      isNever ? '1' : '',
+      ans && ans.frequency !== null && ans.frequency !== undefined ? String(ans.frequency) : '',
+      ans && ans.occasion_home ? '1' : '',
+      ans && ans.occasion_store ? '1' : '',
+      ans && ans.occasion_out ? '1' : ''
+    ];
+  }, [answers]);
+
+  // Copy Horizontal TSV for Current Category (Single line, tab-separated for Excel Cell C4)
+  const handleCopyHorizontalTsv = useCallback(async () => {
+    const currentCategoryItems = FULL_175_SCHEMA.filter(i => i.cat === activeCategory);
+    const cells: string[] = [];
+    currentCategoryItems.forEach(item => {
+      cells.push(...getItemFiveColumns(item.id));
+    });
+    const tsvContent = cells.join('\t');
+    const ok = await copyTextToClipboard(tsvContent);
+    if (ok) {
+      showToast(
+        t('toast.horizontalTsvCopied', {
+          cat: tCat(activeCategory),
+          cols: cells.length
+        }),
+        'success'
+      );
+    } else {
       showToast('Failed to copy TSV to clipboard', 'warning');
     }
-  }, [activeCategory, answers, showToast, t, tCat]);
+  }, [activeCategory, copyTextToClipboard, getItemFiveColumns, showToast, t, tCat]);
+
+  // Copy Vertical TSV for Current Category (Lines of 5 columns, debug view)
+  const handleCopyVerticalTsv = useCallback(async () => {
+    const currentCategoryItems = FULL_175_SCHEMA.filter(i => i.cat === activeCategory);
+    const lines = currentCategoryItems.map(item => getItemFiveColumns(item.id).join('\t'));
+    const tsvContent = lines.join('\r\n');
+    const ok = await copyTextToClipboard(tsvContent);
+    if (ok) {
+      showToast(
+        t('toast.verticalTsvCopied', {
+          cat: tCat(activeCategory),
+          count: currentCategoryItems.length
+        }),
+        'success'
+      );
+    } else {
+      showToast('Failed to copy TSV to clipboard', 'warning');
+    }
+  }, [activeCategory, copyTextToClipboard, getItemFiveColumns, showToast, t, tCat]);
+
+  // Copy All 175 Items as ONE HORIZONTAL ROW (875 columns tab-separated for Cell C4)
+  const handleCopyAllHorizontalTsv = useCallback(async () => {
+    const cells: string[] = [];
+    FULL_175_SCHEMA.forEach(item => {
+      cells.push(...getItemFiveColumns(item.id));
+    });
+    const tsvContent = cells.join('\t');
+    const ok = await copyTextToClipboard(tsvContent);
+    if (ok) {
+      showToast(t('toast.allHorizontalTsvCopied'), 'success');
+    } else {
+      showToast('Failed to copy TSV to clipboard', 'warning');
+    }
+  }, [copyTextToClipboard, getItemFiveColumns, showToast, t]);
+
+  // Primary Copy Handler dispatched based on tsvExportMode
+  const handleCopyTsv = useCallback(() => {
+    if (tsvExportMode === 'horizontal') {
+      handleCopyHorizontalTsv();
+    } else {
+      handleCopyVerticalTsv();
+    }
+  }, [tsvExportMode, handleCopyHorizontalTsv, handleCopyVerticalTsv]);
 
   // CSV Download with validation
   const handleDownloadCsv = useCallback(() => {
@@ -489,8 +561,8 @@ function SurveyAppContent() {
         return;
       }
 
-      // 3. Occasion 1 (家で作る / Homemade): Key 4, 5, or 'h'
-      if (e.key === '4' || e.key === '5' || e.key === 'h' || e.key === 'H') {
+      // 3. Occasion 1 (家 / Homemade): Key 7 (or 'h')
+      if (e.key === '7' || e.key === 'h' || e.key === 'H') {
         e.preventDefault();
         const nextHome = !Boolean(curAns?.occasion_home);
         setAnswers(prev => ({
@@ -509,8 +581,8 @@ function SurveyAppContent() {
         return;
       }
 
-      // 4. Occasion 2 (調理品・惣菜 / Prepared): Key 6, or 's'
-      if (e.key === '6' || e.key === 's' || e.key === 'S') {
+      // 4. Occasion 2 (調理・惣菜 / Store Prepared): Key 8 (or 's')
+      if (e.key === '8' || e.key === 's' || e.key === 'S') {
         e.preventDefault();
         const nextStore = !Boolean(curAns?.occasion_store);
         setAnswers(prev => ({
@@ -529,8 +601,8 @@ function SurveyAppContent() {
         return;
       }
 
-      // 5. Occasion 3 (外食 / Dining out): Key 7, or 'o'
-      if (e.key === '7' || e.key === 'o' || e.key === 'O') {
+      // 5. Occasion 3 (外食 / Dining out): Key 9 (or 'o')
+      if (e.key === '9' || e.key === 'o' || e.key === 'O') {
         e.preventDefault();
         const nextOut = !Boolean(curAns?.occasion_out);
         setAnswers(prev => ({
@@ -549,7 +621,7 @@ function SurveyAppContent() {
         return;
       }
 
-      // 6. Enter or ArrowDown: Next row
+      // 6. Enter or ArrowDown: Move focus to next row
       if (e.key === 'Enter' || e.key === 'ArrowDown') {
         e.preventDefault();
         if (stateRef.current.activeRowIndex < currentCategoryItems.length - 1) {
@@ -558,7 +630,7 @@ function SurveyAppContent() {
         return;
       }
 
-      // 7. ArrowUp: Previous row
+      // 7. ArrowUp: Move focus to previous row
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (stateRef.current.activeRowIndex > 0) {
@@ -567,8 +639,8 @@ function SurveyAppContent() {
         return;
       }
 
-      // 8. Spacebar: Resets the current row across all 5 fields
-      if (e.key === ' ' || e.code === 'Space') {
+      // 8. Backspace, Delete, or Space: Resets the current row across all 5 fields
+      if (e.key === 'Backspace' || e.key === 'Delete' || e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         setAnswers(prev => ({
           ...prev,
@@ -647,7 +719,12 @@ function SurveyAppContent() {
           onClearRow={handleClearRow}
           onJumpNextIncomplete={handleJumpNextIncomplete}
           onOpenMatrixModal={() => setIsMatrixOpen(true)}
+          tsvExportMode={tsvExportMode}
+          onToggleTsvExportMode={setTsvExportMode}
           onCopyTsv={handleCopyTsv}
+          onCopyHorizontalTsv={handleCopyHorizontalTsv}
+          onCopyVerticalTsv={handleCopyVerticalTsv}
+          onCopyAllHorizontalTsv={handleCopyAllHorizontalTsv}
           onClearActiveCategory={handleClearActiveCategory}
           onDownloadCsv={handleDownloadCsv}
           schemaItems={FULL_175_SCHEMA}
